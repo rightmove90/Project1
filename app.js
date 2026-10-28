@@ -265,7 +265,7 @@ async function fetchDirect(it, onPct) {
   const type = it.mime && it.mime !== 'application/octet-stream' ? it.mime : (res.headers.get('content-type') || '').split(';')[0];
   return new File(chunks, it.name, { type });
 }
-async function fetchAsFile(it, onPct) {
+async function fetchAsFileRaw(it, onPct) {
   const native = (it.mime || '').startsWith('application/vnd.google-apps.');
   if (CFG.DRIVE_API_KEY && !native) {
     try { return await fetchDirect(it, onPct); } catch (e) { if (it.size > APPS_SCRIPT_MAX) throw e; }
@@ -281,6 +281,35 @@ async function fetchAsFile(it, onPct) {
     if (!b.length) break;
   } while (off < total);
   return new File(parts, name, { type: mime });
+}
+/* ذاكرة الملفات المجهّزة على الهاتف: لا يُعاد التحميل في المرة القادمة */
+const FCACHE = 'portal-files-v1'; const FCACHE_MAX = 600 * 1048576;
+const fkey = (it) => `https://files.local/${encodeURIComponent(it.id)}/${it.size || 0}`;
+async function cacheGet(it) {
+  try {
+    if (!window.caches || (it.mime || '').startsWith('application/vnd.google-apps.')) return null;
+    const r = await (await caches.open(FCACHE)).match(fkey(it)); if (!r) return null;
+    const blob = await r.blob();
+    return new File([blob], decodeURIComponent(r.headers.get('x-name') || it.name), { type: r.headers.get('x-mime') || blob.type });
+  } catch { return null; }
+}
+async function cachePut(it, file) {
+  try {
+    if (!window.caches || (it.mime || '').startsWith('application/vnd.google-apps.')) return;
+    const c = await caches.open(FCACHE);
+    await c.put(fkey(it), new Response(file, { headers: { 'x-name': encodeURIComponent(file.name), 'x-mime': file.type || '', 'x-t': String(Date.now()), 'x-size': String(file.size) } }));
+    const reqs = await c.keys(); let tot = 0; const rows = [];
+    for (const rq of reqs) { const r = await c.match(rq); const sz = +r.headers.get('x-size') || 0; tot += sz; rows.push({ rq, sz, t: +r.headers.get('x-t') || 0 }); }
+    rows.sort((a, b) => a.t - b.t);
+    for (const x of rows) { if (tot <= FCACHE_MAX) break; await c.delete(x.rq); tot -= x.sz; }
+  } catch { /* الذاكرة ممتلئة أو غير متاحة: نتجاهل */ }
+}
+async function clearFileCache() { try { if (window.caches) await caches.delete(FCACHE); } catch { /* */ } }
+async function fetchAsFile(it, onPct) {
+  const hit = await cacheGet(it); if (hit) { onPct(1); return hit; }
+  const f = await fetchAsFileRaw(it, onPct);
+  cachePut(it, f);
+  return f;
 }
 function readyModal(title, note, label, run) {
   modal({ title, body: `<p class="note">${esc(note)}</p>`, actions: [{ label: t('cancel') }, { label, cls: 'wa', async run() { await run(); } }] });
@@ -496,7 +525,7 @@ const actions = {
     modal({ title: S.me.name, body: `<p class="note">${esc(t('me_account', { u: S.me.username }))}</p>
       <label class="fld"><span>${esc(t('pw_current'))}</span><input id="pw0" type="password" autocomplete="current-password"></label>
       <label class="fld"><span>${esc(t('pw_new'))}</span><input id="pw1" type="password" autocomplete="new-password"></label>`,
-      actions: [{ label: t('logout'), cls: 'danger', async run() { await api('POST', '/api/logout'); S.me = null; S.cfg = null; S.projects = null; renderLogin(); } },
+      actions: [{ label: t('logout'), cls: 'danger', async run() { await api('POST', '/api/logout'); clearFileCache(); S.me = null; S.cfg = null; S.projects = null; renderLogin(); } },
         { label: t('change_pw'), cls: 'pri', async run() { await api('POST', '/api/me/password', { current: $('#pw0').value, password: $('#pw1').value }); toast(t('pw_changed'), 'ok'); } }] });
   },
   'open-file'(b) {
