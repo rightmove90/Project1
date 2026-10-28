@@ -1,7 +1,19 @@
-// إعدادات الواجهة. بعد نشر Apps Script ضع رابط الخلفية (Web app URL) داخل علامتي الاقتباس.
+
+/**
+ * إعدادات الواجهة الأمامية
+ * ضع رابط Google Apps Script Web App بعد نشره.
+ */
 window.PORTAL = {
-  API_URL: '',            // مثال: 'https://script.google.com/macros/s/AKfycbwXrnYvmHHiNZHoz4-eXNlKPvJpIezbl_QnMQfYl-8DidHP7VXVxlYWsBrFHWF6HXxe2A/exec'
-  MAX_UPLOAD_MB: 15,      // أقصى حجم للرفع من الموقع (الأكبر يُرفع مباشرة في Drive)
-  DRIVE_API_KEY: '',      // اختياري: مفتاح Google API لإرسال الملفات الكبيرة مباشرة (انظر README)
-  MAX_DIRECT_MB: 100      // أقصى حجم لملف يُرسل كمرفق (يعمل مع DRIVE_API_KEY؛ بدونه الحد 10)
+  // رابط الخلفية (Apps Script Web App URL)
+  API_URL: 'https://script.google.com/macros/s/AKfycbwXrnYvmHHiNZHoz4-eXNlKPvJpIezbl_QnMQfYl-8DidHP7VXVxlYWsBrFHWF6HXxe2A/exec',
+
+  // أقصى حجم للملف المرفوع من الموقع بالميغابايت
+  MAX_UPLOAD_MB: 15,
+
+  // مفتاح Google API اختياري للملفات الكبيرة
+  DRIVE_API_KEY: '',
+
+  // أقصى حجم للمرفقات المباشرة بالميغابايت
+  // يتطلب DRIVE_API_KEY، وإلا فالحد المذكور في التعليق هو 10 ميغابايت
+  MAX_DIRECT_MB: 100
 };
