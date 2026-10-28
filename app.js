@@ -240,9 +240,10 @@ function msgProject(p) {
 }
 
 /* ===== إرسال الملف نفسه (نافذة المشاركة في الجهاز) ===== */
-const APPS_SCRIPT_MAX = 10 * 1048576; // حد المسار الاحتياطي عبر Apps Script
+const APPS_SCRIPT_MAX = 45 * 1048576; // حد المسار الاحتياطي عبر Apps Script (على دفعات)
+const CHUNK = 6 * 1048576;
 const shareMode = () => LS.get('sendMode') !== 'link';
-const directLimit = () => (CFG.DRIVE_API_KEY ? CFG.MAX_DIRECT_MB * 1048576 : APPS_SCRIPT_MAX);
+const directLimit = () => (CFG.DRIVE_API_KEY ? CFG.MAX_DIRECT_MB * 1048576 : Math.min(CFG.MAX_DIRECT_MB * 1048576, APPS_SCRIPT_MAX));
 function canShareNow(items) {
   try {
     if (!navigator.share || !navigator.canShare) return false;
@@ -270,8 +271,16 @@ async function fetchAsFile(it, onPct) {
     try { return await fetchDirect(it, onPct); } catch (e) { if (it.size > APPS_SCRIPT_MAX) throw e; }
   }
   if (it.size > APPS_SCRIPT_MAX) throw new Error('too big');
-  const r = await rpc('fileData', { id: it.id });
-  return new File([b64ToBytes(r.data)], r.name, { type: r.mime });
+  const parts = []; let off = 0; let total = it.size || 1; let name = it.name; let mime = it.mime;
+  do {
+    let r;
+    for (let k = 0; ; k++) { try { r = await rpc('fileData', { id: it.id, offset: off, length: CHUNK }); break; } catch (e) { if (k >= 2) throw e; } }
+    if (r.offset === undefined) { parts.push(b64ToBytes(r.data)); name = r.name; mime = r.mime; break; } // خلفية قديمة: الملف كاملاً
+    const b = b64ToBytes(r.data); parts.push(b); off += b.length; total = r.total; name = r.name; mime = r.mime;
+    onPct(Math.min(1, off / (total || 1)));
+    if (!b.length) break;
+  } while (off < total);
+  return new File(parts, name, { type: mime });
 }
 function readyModal(title, note, label, run) {
   modal({ title, body: `<p class="note">${esc(note)}</p>`, actions: [{ label: t('cancel') }, { label, cls: 'wa', async run() { await run(); } }] });
