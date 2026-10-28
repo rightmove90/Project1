@@ -422,10 +422,11 @@ function drawProjects() {
 }
 
 /* ===== صفحة المشروع ===== */
-async function viewProject(id) {
+const SECS = ['info', 'videos', 'maps', 'location', 'prices'];
+async function viewProject(id, sec = S.sec) {
   setView('<div class="spin"></div>');
   const { project } = await api('GET', '/api/projects/' + encodeURIComponent(id));
-  S.project = project; drawProject();
+  S.project = project; S.sec = SECS.includes(sec) ? sec : null; drawProject();
 }
 const count = (arr) => (arr.length ? `<span class="cnt">${arr.length}</span>` : '');
 function fileRow(it) {
@@ -456,22 +457,27 @@ function block(k) {
     <div class="bact">${adminTools(k)}<button class="btn sm wa" data-act="send-section" data-sec="${k}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div></div>
     ${items.length ? `<ul class="files">${items.map(fileRow).join('')}</ul>` : `<p class="none">${esc(S.me.role === 'admin' ? t('none_admin') : t('none_sales'))}</p>`}</div>`;
 }
+const INFO_KEYS = ['info_ar', 'info_ku', 'info_en'];
+const secCount = (p, k) => (k === 'info' ? INFO_KEYS : [k]).reduce((n, x) => n + p.sections[x].length, 0);
 function drawProject() {
-  const p = S.project; const admin = S.me.role === 'admin';
-  const infoKeys = ['info_ar', 'info_ku', 'info_en']; const infoCount = infoKeys.reduce((n, k) => n + p.sections[k].length, 0);
+  const p = S.project; const admin = S.me.role === 'admin'; const sec = S.sec; const pid = encodeURIComponent(p.id);
+  if (sec) {
+    const body = sec === 'info'
+      ? `<section class="grp"><div class="sub">${INFO_KEYS.map(block).join('')}</div></section>` : block(sec);
+    setView(`<a class="crumb" href="#/p/${pid}" data-act="back">${IC.back}<span>${esc(p.name)}</span></a>
+    <div class="page-h"><h1>${esc(L()[sec])}<small>${secCount(p, sec)}</small></h1>
+      <button class="btn wa" data-act="send-section" data-sec="${sec}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div>
+    <div class="stack">${body}</div>`);
+    if (admin) wireDrop();
+    return;
+  }
   setView(`<a class="crumb" href="#/" data-act="back">${IC.back}<span>${esc(TX().projectsTitle)}</span></a>
   <div class="phead">${cover(p, 'pc')}<h1>${esc(p.name)}</h1>
     <div class="acts"><button class="btn wa" data-act="send-project">${IC.wa}<span>${esc(t('send_project_all'))}</span></button></div></div>
   ${admin ? `<div class="adminbar"><button class="btn sm" data-act="rename-project">${IC.edit}<span>${esc(t('rename'))}</span></button>
     <button class="btn sm" data-act="upload" data-sec="cover">${IC.image}<span>${esc(t('cover'))}</span></button>
     <button class="btn sm danger" data-act="del-project">${IC.trash}<span>${esc(t('delete_project'))}</span></button></div>` : ''}
-  <div class="stack">
-    <section class="grp"><div class="bh"><h3>${esc(L().info)}${count({ length: infoCount })}</h3>
-      <div class="bact"><button class="btn sm wa" data-act="send-section" data-sec="info">${IC.wa}<span>${esc(t('send_section'))}</span></button></div></div>
-      <div class="sub">${infoKeys.map(block).join('')}</div></section>
-    ${['videos', 'maps', 'location', 'prices'].map(block).join('')}
-  </div>`);
-  if (admin) wireDrop();
+  <div class="sgrid">${SECS.map((k) => `<a class="stile" href="#/p/${pid}/${k}" data-sec="${k}"><span class="sn">${esc(L()[k])}</span><span class="cnt">${secCount(p, k)}</span></a>`).join('')}</div>`);
 }
 
 /* ===== رفع الملفات (للمسؤول) ===== */
@@ -514,7 +520,7 @@ function wireDrop() {
 /* ===== الإجراءات ===== */
 const findItem = (id) => Object.values(S.project.sections).flat().find((i) => i.id === id);
 const actions = {
-  back() { if (S.idx > 0) history.back(); else navigate('#/'); },
+  back(b) { if (S.idx > 0) history.back(); else navigate((b && b.getAttribute('href')) || '#/'); },
   lang() {
     const m = modal({ title: t('language'), body: `<div class="langlist">${Object.keys(I.langs).map((c) => `<button class="langopt${c === S.lang ? ' on' : ''}" data-lang="${c}" lang="${c}" dir="${I.langs[c].dir}">${esc(I.langs[c].name)}</button>`).join('')}</div>` });
     m.el.addEventListener('click', (e) => { const b = e.target.closest('[data-lang]'); if (!b) return; m.close(); setLang(b.dataset.lang); });
@@ -689,7 +695,7 @@ async function route() {
   if (!S.me) return;
   const h = location.hash || '#/'; let m;
   try {
-    if ((m = /^#\/p\/(.+)$/.exec(h))) await viewProject(decodeURIComponent(m[1]));
+    if ((m = /^#\/p\/([^/]+)(?:\/([a-z]+))?$/.exec(h))) await viewProject(decodeURIComponent(m[1]), m[2] || null);
     else if ((m = /^#\/admin(?:\/(users|settings))?$/.exec(h)) && S.me.role === 'admin') await viewAdmin(m[1] || 'users');
     else await viewProjects();
   } catch (e) {
