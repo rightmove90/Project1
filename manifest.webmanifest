@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "مشاريع الشركة",
-  "short_name": "المشاريع",
-  "description": "مكتبة مشاريع فريق المبيعات",
+  "name": "Projects files",
+  "short_name": "files",
+  "description": "Sales Team Project Library",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "./",
