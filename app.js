@@ -71,7 +71,7 @@ const IC = {
   user: P('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.5 3.4-5.5 7-5.5s6.4 2 7 5.5"/>'),
   globe: P('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.600 5.900 12 3.500z"/>'),
   edit: P('<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>'),
-  site: `<svg class="i" viewBox="0 0 2048 2048" aria-hidden="true" style="fill:#6f3622;stroke:none"><path d="M1774 706 L1258 200 L895 440 L963 505 L1247 319 L1682 745 L1681 1426 L1294 1699 L1297 1057 L777 543 L241 902 L236 1641 L285 1689 L813 1320 L815 940 L724 850 L721 1271 L329 1543 L333 952 L766 662 L1205 1096 L1201 1805 L1245 1847 L1773 1475 Z"/></svg>`,
+  site: `<svg class="i" viewBox="0 0 2048 2048" aria-hidden="true" style="fill:#ffffff;stroke:none"><path d="M1774 706 L1258 200 L895 440 L963 505 L1247 319 L1682 745 L1681 1426 L1294 1699 L1297 1057 L777 543 L241 902 L236 1641 L285 1689 L813 1320 L815 940 L724 850 L721 1271 L329 1543 L333 952 L766 662 L1205 1096 L1201 1805 L1245 1847 L1773 1475 Z"/></svg>`,
 };
 const CAT_IC = { video: IC.video, image: IC.image, pdf: IC.pdf, sheet: IC.sheet, doc: IC.doc, audio: IC.audio, link: IC.link, text: IC.text, other: IC.other };
 
