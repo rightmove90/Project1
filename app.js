@@ -8,7 +8,18 @@ const LS = {
   get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
   set: (k, v) => { try { v === null || v === '' ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* */ } },
 };
-const S = { me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
+/* ذاكرة محلية للبيانات: يظهر المحتوى فوراً ثم يُحدَّث في الخلفية */
+const CP = 'sp_c_';
+const cget = (k) => { try { const v = LS.get(CP + k); return v ? JSON.parse(v) : null; } catch { return null; } };
+const cset = (k, v) => {
+  try { localStorage.setItem(CP + k, JSON.stringify(v)); }
+  catch { try { Object.keys(localStorage).filter((x) => x.startsWith(CP + 'p_')).forEach((x) => localStorage.removeItem(x)); } catch { /* */ } }
+};
+const cdel = (k) => { try { localStorage.removeItem(CP + k); } catch { /* */ } };
+function clearCache() { try { Object.keys(localStorage).filter((x) => x.startsWith(CP)).forEach((x) => localStorage.removeItem(x)); } catch { /* */ } S.praw = {}; S.ptime = {}; S.listTime = 0; S.listStr = ''; }
+function invalidateList() { S.projects = null; S.listTime = 0; cdel('projects'); }
+function invalidateProject(id) { delete S.praw[id]; delete S.ptime[id]; cdel('p_' + id); }
+const S = { nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
 
 /* ===== اللغة ===== */
 const I = window.I18N;
@@ -71,7 +82,7 @@ const IC = {
   user: P('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.5 3.4-5.5 7-5.5s6.4 2 7 5.5"/>'),
   globe: P('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.600 5.900 12 3.500z"/>'),
   edit: P('<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>'),
-  site: `<svg class="i" viewBox="0 0 2048 2048" aria-hidden="true" style="fill:#ffffff;stroke:none"><path d="M1774 706 L1258 200 L895 440 L963 505 L1247 319 L1682 745 L1681 1426 L1294 1699 L1297 1057 L777 543 L241 902 L236 1641 L285 1689 L813 1320 L815 940 L724 850 L721 1271 L329 1543 L333 952 L766 662 L1205 1096 L1201 1805 L1245 1847 L1773 1475 Z"/></svg>`,
+  site: P('<path d="M4 20V10l5-3v13M9 20V4l6 3v13M15 20v-8l5 3v5M2 20h20"/>'),
 };
 const CAT_IC = { video: IC.video, image: IC.image, pdf: IC.pdf, sheet: IC.sheet, doc: IC.doc, audio: IC.audio, link: IC.link, text: IC.text, other: IC.other };
 
@@ -101,7 +112,7 @@ async function rpc(action, payload = {}) {
   let j; try { j = await res.json(); } catch { throw new Error(t('err_resp')); }
   if (!j.ok) {
     const e = new Error(trErr(j.error) || t('err_generic')); e.status = j.status;
-    if (j.status === 401 && action !== 'login') { tokenStore.set(''); S.me = null; S.cfg = null; renderLogin(); }
+    if (j.status === 401 && action !== 'login') { tokenStore.set(''); clearCache(); S.me = null; S.cfg = null; renderLogin(); }
     throw e;
   }
   return j.data;
@@ -116,7 +127,7 @@ function normProject(p) {
 async function api(method, url, body = {}) {
   let m;
   if (url === '/api/public') return rpc('public');
-  if (url === '/api/login') { const r = await rpc('login', body); tokenStore.set(r.token); return { user: r.user }; }
+  if (url === '/api/login') { const r = await rpc('login', body); clearCache(); tokenStore.set(r.token); return { user: r.user }; }
   if (url === '/api/logout') { tokenStore.set(''); return { ok: true }; }
   if (url === '/api/me') return rpc('me');
   if (url === '/api/me/password') { const r = await rpc('changePassword', body); if (r.token) tokenStore.set(r.token); return { ok: true }; }
@@ -398,9 +409,32 @@ function renderLogin() {
 
 /* ===== قائمة المشاريع ===== */
 async function viewProjects() {
-  setView('<div class="spin"></div>');
-  if (!S.projects) S.projects = (await api('GET', '/api/projects')).projects;
-  drawProjects();
+  const tok = S.nav;
+  if (!S.projects) { const c = cget('projects'); if (c && c.projects) { S.projects = c.projects; S.listStr = JSON.stringify(c.projects); } }
+  const fresh = S.projects && Date.now() - S.listTime < 45000;
+  if (S.projects) drawProjects(); else setView('<div class="spin"></div>');
+  if (fresh) { prefetchProjects(); return; }
+  let r;
+  try { r = await api('GET', '/api/projects'); } catch (e) { if (!S.projects) throw e; return; }
+  S.listTime = Date.now(); cset('projects', r);
+  const str = JSON.stringify(r.projects); const changed = str !== S.listStr; S.listStr = str;
+  const had = !!S.projects; S.projects = r.projects;
+  const typing = document.activeElement && document.activeElement.id === 'q';
+  if (tok === S.nav && (!had || changed) && !typing) drawProjects();
+  prefetchProjects();
+}
+/* تحميل مسبق لبيانات المشاريع في الخلفية ليفتح أي مشروع فوراً */
+let pfRun = false;
+async function prefetchProjects() {
+  if (pfRun || !S.projects) return; pfRun = true;
+  const ids = S.projects.map((p) => p.id).filter((id) => !S.ptime[id]).slice(0, 12);
+  const worker = async () => {
+    while (ids.length && S.me) {
+      const id = ids.shift();
+      try { const r = await rpc('project', { id }); S.ptime[id] = Date.now(); S.praw[id] = JSON.stringify(r); cset('p_' + id, r); } catch { /* */ }
+    }
+  };
+  await Promise.all([worker(), worker()]); pfRun = false;
 }
 function cover(p, cls = '') {
   return p.coverUrl ? `<span class="cover ${cls}" style="background-image:url('${esc(p.coverUrl)}')" role="img" aria-label="${esc(p.name)}"></span>`
@@ -423,10 +457,18 @@ function drawProjects() {
 
 /* ===== صفحة المشروع ===== */
 const SECS = ['info', 'videos', 'maps', 'location', 'prices'];
-async function viewProject(id, sec = S.sec) {
-  setView('<div class="spin"></div>');
-  const { project } = await api('GET', '/api/projects/' + encodeURIComponent(id));
-  S.project = project; S.sec = SECS.includes(sec) ? sec : null; drawProject();
+async function viewProject(id, sec = S.sec, fresh = false) {
+  const tok = S.nav; const secOk = SECS.includes(sec) ? sec : null;
+  let str = null;
+  if (!fresh) { str = S.praw[id] || null; if (!str) { const c = cget('p_' + id); if (c && c.project) str = JSON.stringify(c); } }
+  const show = (x) => { S.project = normProject(JSON.parse(x).project); S.sec = secOk; drawProject(); };
+  if (str) { S.praw[id] = str; show(str); if (S.ptime[id] && Date.now() - S.ptime[id] < 45000) return; }
+  else setView('<div class="spin"></div>');
+  let r;
+  try { r = await rpc('project', { id }); } catch (e) { if (!str) throw e; return; }
+  const ns = JSON.stringify(r); S.ptime[id] = Date.now(); S.praw[id] = ns; cset('p_' + id, r);
+  if (tok !== S.nav && !fresh) return;
+  if (!str || ns !== str) show(ns);
 }
 const count = (arr) => (arr.length ? `<span class="cnt">${arr.length}</span>` : '');
 function fileRow(it) {
@@ -507,7 +549,7 @@ async function uploadFiles(sec, files) {
     catch (e) { toast(`${f.name}: ${e.message}`, 'err'); }
   }
   pt.done();
-  if (okN) { toast(okN === 1 ? t('uploaded_1') : t('uploaded_n', { n: okN }), 'ok'); S.projects = null; await viewProject(S.project.id); }
+  if (okN) { toast(okN === 1 ? t('uploaded_1') : t('uploaded_n', { n: okN }), 'ok'); invalidateList(); await viewProject(S.project.id, S.sec, true); }
 }
 function wireDrop() {
   $$('.blk[data-sec]').forEach((el) => {
@@ -526,12 +568,12 @@ const actions = {
     m.el.addEventListener('click', (e) => { const b = e.target.closest('[data-lang]'); if (!b) return; m.close(); setLang(b.dataset.lang); });
   },
   mode(b) { LS.set('sendMode', shareMode() ? 'link' : 'file'); b.innerHTML = modeBtn(); toast(shareMode() ? t('mode_to_file') : t('mode_to_link'), 'ok'); },
-  async refresh() { await api('POST', '/api/refresh'); S.projects = null; await route(); toast(t('refreshed'), 'ok'); },
+  async refresh() { await api('POST', '/api/refresh'); clearCache(); await route(); toast(t('refreshed'), 'ok'); },
   me() {
     modal({ title: S.me.name, body: `<p class="note">${esc(t('me_account', { u: S.me.username }))}</p>
       <label class="fld"><span>${esc(t('pw_current'))}</span><input id="pw0" type="password" autocomplete="current-password"></label>
       <label class="fld"><span>${esc(t('pw_new'))}</span><input id="pw1" type="password" autocomplete="new-password"></label>`,
-      actions: [{ label: t('logout'), cls: 'danger', async run() { await api('POST', '/api/logout'); clearFileCache(); S.me = null; S.cfg = null; S.projects = null; renderLogin(); } },
+      actions: [{ label: t('logout'), cls: 'danger', async run() { await api('POST', '/api/logout'); clearFileCache(); clearCache(); S.me = null; S.cfg = null; invalidateList(); renderLogin(); } },
         { label: t('change_pw'), cls: 'pri', async run() { await api('POST', '/api/me/password', { current: $('#pw0').value, password: $('#pw1').value }); toast(t('pw_changed'), 'ok'); } }] });
   },
   'open-file'(b) {
@@ -562,7 +604,7 @@ const actions = {
       <label class="fld"><span>${esc(t('link_url'))}</span><input id="lu" type="url" inputmode="url" dir="ltr" class="ltr-in" placeholder="https://..."><span class="hint">${esc(t('link_hint'))}</span></label>`,
       actions: [{ label: t('cancel') }, { label: t('add'), cls: 'pri', async run() {
         await api('POST', `/api/projects/${encodeURIComponent(S.project.id)}/links`, { section: sec, title: $('#lt').value, url: $('#lu').value });
-        toast(t('link_added'), 'ok'); await viewProject(S.project.id);
+        toast(t('link_added'), 'ok'); await viewProject(S.project.id, S.sec, true);
       } }] });
   },
   'add-note'(b) {
@@ -571,29 +613,29 @@ const actions = {
       <label class="fld"><span>${esc(t('note_text'))}</span><textarea id="nx" rows="6" maxlength="4000"></textarea><span class="hint">${esc(t('note_hint'))}</span></label>`,
       actions: [{ label: t('cancel') }, { label: t('add'), cls: 'pri', async run() {
         await api('POST', `/api/projects/${encodeURIComponent(S.project.id)}/notes`, { section: sec, title: $('#nt').value, text: $('#nx').value });
-        toast(t('note_added'), 'ok'); await viewProject(S.project.id);
+        toast(t('note_added'), 'ok'); await viewProject(S.project.id, S.sec, true);
       } }] });
   },
   async 'del-file'(b) {
     const it = findItem(b.dataset.id); if (!it || !confirm(t('del_file_q', { name: it.name }))) return;
-    await api('DELETE', '/api/files/' + encodeURIComponent(it.id)); toast(t('deleted'), 'ok'); S.projects = null; await viewProject(S.project.id);
+    await api('DELETE', '/api/files/' + encodeURIComponent(it.id)); toast(t('deleted'), 'ok'); invalidateList(); await viewProject(S.project.id, S.sec, true);
   },
   'new-project'() {
     modal({ title: t('np_title'), body: `<label class="fld"><span>${esc(t('np_name'))}</span><input id="pn" maxlength="80"></label><p class="note">${esc(t('np_note'))}</p>`,
       actions: [{ label: t('cancel') }, { label: t('create'), cls: 'pri', async run() {
-        const r = await api('POST', '/api/projects', { name: $('#pn').value }); S.projects = null; await navigate('#/p/' + encodeURIComponent(r.project.id));
+        const r = await api('POST', '/api/projects', { name: $('#pn').value }); invalidateList(); await navigate('#/p/' + encodeURIComponent(r.project.id));
       } }] });
   },
   'rename-project'() {
     modal({ title: t('rn_title'), body: `<label class="fld"><span>${esc(t('rn_name'))}</span><input id="pn" maxlength="80" value="${esc(S.project.name)}"></label>`,
       actions: [{ label: t('cancel') }, { label: t('save'), cls: 'pri', async run() {
-        const r = await api('PATCH', '/api/projects/' + encodeURIComponent(S.project.id), { name: $('#pn').value }); S.projects = null;
+        const r = await api('PATCH', '/api/projects/' + encodeURIComponent(S.project.id), { name: $('#pn').value }); invalidateProject(S.project.id); invalidateList();
         history.replaceState({ idx: S.idx }, '', '#/p/' + encodeURIComponent(r.project.id)); await route();
       } }] });
   },
   async 'del-project'() {
     if (!confirm(t('del_project_q', { name: S.project.name }))) return;
-    await api('DELETE', '/api/projects/' + encodeURIComponent(S.project.id)); S.projects = null; toast(t('project_deleted'), 'ok');
+    await api('DELETE', '/api/projects/' + encodeURIComponent(S.project.id)); invalidateList(); toast(t('project_deleted'), 'ok');
     if (S.idx > 0) history.back(); else navigate('#/');
   },
 };
@@ -625,7 +667,7 @@ async function viewAdmin(tab = 'users') {
       const labels = {}; $$('[data-lab]').forEach((i) => { labels[i.dataset.lab] = i.value; });
       try {
         await api('PUT', '/api/admin/settings', { lang: sl, countryCode: $('#s-cc').value, texts: { siteName: $('#s-name').value, tagline: $('#s-tag').value, projectsTitle: $('#s-pt').value, whatsappIntro: $('#s-in').value, labels } });
-        S.cfg = await api('GET', '/api/config'); toast(t('saved'), 'ok'); shell('<div class="spin"></div>'); await viewAdmin('settings');
+        S.cfg = await api('GET', '/api/config'); cset('cfg', S.cfg); toast(t('saved'), 'ok'); shell('<div class="spin"></div>'); await viewAdmin('settings');
       } catch (e) { toast(e.message, 'err'); }
     };
     return;
@@ -693,6 +735,7 @@ function setupInstall() {
 /* ===== التوجيه والتشغيل ===== */
 async function route() {
   if (!S.me) return;
+  S.nav++;
   const h = location.hash || '#/'; let m;
   try {
     if ((m = /^#\/p\/([^/]+)(?:\/([a-z]+))?$/.exec(h))) await viewProject(decodeURIComponent(m[1]), m[2] || null);
@@ -705,19 +748,35 @@ async function route() {
   window.scrollTo(0, 0);
 }
 async function start() {
-  S.cfg = await api('GET', '/api/config'); S.projects = null;
+  S.cfg = await api('GET', '/api/config'); invalidateList();
   if (!S.cfg.texts) { S.cfg = null; throw new Error(t('err_old_backend')); }
+  cset('me', S.me); cset('cfg', S.cfg);
   shell('<div class="spin"></div>'); await route();
 }
 (async function boot() {
   S.lang = detectLang(); applyLang();
   history.replaceState({ idx: 0 }, '');
   setupInstall();
-  try { S.pub = await api('GET', '/api/public'); } catch (e) { S.bootError = e.message; }
-  applyLang();
+  const showLogin = async (err) => {
+    if (!S.pub) { try { S.pub = await api('GET', '/api/public'); } catch (e) { err = err || e.message; } }
+    applyLang(); renderLogin(); if (err) $('#le').innerHTML = `<div class="err">${esc(err)}</div>`;
+  };
   if (tokenStore.get()) {
-    try { S.me = (await api('GET', '/api/me')).user; await start(); return; }
-    catch (e) { if (S.me) { S.bootError = e.message; S.me = null; } }
+    // فتح فوري من النسخة المحلية ثم التحقق في الخلفية
+    const cm = cget('me'); const cc = cget('cfg');
+    if (cm && cc && cc.texts) {
+      S.me = cm; S.cfg = cc; applyLang(); shell('<div class="spin"></div>'); route();
+      api('GET', '/api/me').then((r) => { S.me = r.user; cset('me', r.user); }).catch(() => {});
+      api('GET', '/api/config').then((c) => {
+        if (!c.texts || JSON.stringify(c) === JSON.stringify(S.cfg) || !S.me) return;
+        S.cfg = c; cset('cfg', c); applyLang(); shell('<div class="spin"></div>'); route();
+      }).catch(() => {});
+      return;
+    }
+    try { const r = await api('GET', '/api/me'); S.me = r.user; await start(); return; }
+    catch (e) { const msg = S.me ? e.message : ''; S.me = null; return showLogin(msg); }
   }
-  if (!S.me) { renderLogin(); if (S.bootError) $('#le').innerHTML = `<div class="err">${esc(S.bootError)}</div>`; }
+  showLogin();
 })();
+/* إبقاء الخلفية جاهزة (تجنّب البدء البارد في Apps Script) */
+setInterval(() => { if (S.me && document.visibilityState === 'visible') rpc('public').catch(() => {}); }, 4 * 60 * 1000);
