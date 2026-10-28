@@ -3,7 +3,7 @@ const CACHE = 'sp-shell-v1';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== CACHE && k !== 'portal-files-v1') await caches.delete(k);
     await self.clients.claim();
   })());
 });
