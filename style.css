@@ -206,3 +206,10 @@ html[dir=ltr] body{font-family:var(--f-body-en,"Inter","Noto Sans",system-ui,-ap
 #install .x{width:44px;opacity:.7;font-size:15px;border-inline-start:1px solid rgba(255,255,255,.2)}
 #install .x:hover{opacity:1}
 body:has(.toast) #install{bottom:calc(84px + env(safe-area-inset-bottom))}
+
+/* شبكة أقسام المشروع */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.stile{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:20px 18px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);text-decoration:none;font-weight:700;font-size:17px;min-height:72px}
+.stile:hover,.stile:focus-visible{border-color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.stile .cnt{background:var(--ink);color:#fff;border-radius:99px;min-width:28px;padding:2px 9px;text-align:center;font-size:14px}
+.stack>.grp>.bh{display:none}
