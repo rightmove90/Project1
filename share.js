@@ -25,7 +25,7 @@ const UI = {
     document.title = d.title + ' — ' + tx.siteName;
     document.getElementById('site').textContent = tx.siteName;
     document.getElementById('title').textContent = d.title;
-    const label = (k) => (k.indexOf('info_') === 0 ? L.info + ' — ' + L[k] : L[k]);
+    const label = (k) => (k.indexOf('info_') === 0 && k !== 'info_gen' ? L.info + ' — ' + L[k] : L[k]);
     const groups = d.groups.filter((g) => g.items.length);
     main.innerHTML = groups.length ? groups.map((g) => `<section><h2>${esc(label(g.key))}</h2>${g.items.map((it) => it.category === 'text'
       ? `<div class="row note"><span class="ic">📝</span><span class="nm"><b>${esc(it.name)}</b><br><span class="tx">${esc(it.text)}</span></span></div>`
