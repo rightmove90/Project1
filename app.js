@@ -82,7 +82,7 @@ const IC = {
   user: P('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.5 3.4-5.5 7-5.5s6.4 2 7 5.5"/>'),
   globe: P('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.600 5.900 12 3.500z"/>'),
   edit: P('<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>'),
-  site: '<svg class="i logo-icon" viewBox="0 0 2048 2048" aria-hidden="true" style="fill:#ffffff;stroke:none"><path d="M1774 706 L1258 200 L895 440 L963 505 L1247 319 L1682 745 L1681 1426 L1294 1699 L1297 1057 L777 543 L241 902 L236 1641 L285 1689 L813 1320 L815 940 L724 850 L721 1271 L329 1543 L333 952 L766 662 L1205 1096 L1201 1805 L1245 1847 L1773 1475 Z"/></svg>',
+  site: P('<path d="M4 20V10l5-3v13M9 20V4l6 3v13M15 20v-8l5 3v5M2 20h20"/>'),
 };
 const CAT_IC = { video: IC.video, image: IC.image, pdf: IC.pdf, sheet: IC.sheet, doc: IC.doc, audio: IC.audio, link: IC.link, text: IC.text, other: IC.other };
 
@@ -228,7 +228,7 @@ async function sendWAAsync(build) {
   } catch (e) { w && w.close(); toast(e.message, 'err'); }
 }
 // قوالب الرسائل تُبنى بلغة الموظف المختارة حالياً (نص الافتتاح وأسماء الأقسام)
-const secLabel = (k) => (k.startsWith('info_') ? `${L().info}${t('msg_info_sep')}${L()[k]}` : L()[k]);
+const secLabel = (k) => (k.startsWith('info_') && k !== 'info_gen' ? `${L().info}${t('msg_info_sep')}${L()[k]}` : L()[k]);
 const intro = (p) => (TX().whatsappIntro || '').replace(/\{project\}/g, p.name);
 const itemLine = (i) => (i.kind === 'text' ? `• ${i.name}\n${i.text}` : `• ${i.name}\n${i.shareUrl}`);
 const lines = (items) => items.map(itemLine).join('\n\n');
@@ -499,7 +499,7 @@ function block(k) {
     <div class="bact">${adminTools(k)}<button class="btn sm wa" data-act="send-section" data-sec="${k}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div></div>
     ${items.length ? `<ul class="files">${items.map(fileRow).join('')}</ul>` : `<p class="none">${esc(S.me.role === 'admin' ? t('none_admin') : t('none_sales'))}</p>`}</div>`;
 }
-const INFO_KEYS = ['info_ar', 'info_ku', 'info_en'];
+const INFO_KEYS = ['info_gen', 'info_ar', 'info_ku', 'info_en'];
 const secCount = (p, k) => (k === 'info' ? INFO_KEYS : [k]).reduce((n, x) => n + p.sections[x].length, 0);
 function drawProject() {
   const p = S.project; const admin = S.me.role === 'admin'; const sec = S.sec; const pid = encodeURIComponent(p.id);
@@ -589,7 +589,7 @@ const actions = {
   'send-note'(b) { const it = findItem(b.dataset.id); if (it) sendWA(it.text); },
   'send-section'(b) {
     const k = b.dataset.sec; const p = S.project;
-    const keys = k === 'info' ? ['info_ar', 'info_ku', 'info_en'] : [k];
+    const keys = k === 'info' ? INFO_KEYS : [k];
     return sendItems(keys.flatMap((x) => p.sections[x]), p.name, () => { const txt = msgSection(p, keys, k === 'info' ? L().info : secLabel(k), p.sectionShareUrls[k]); if (txt) sendWA(txt); });
   },
   'send-project'() { const p = S.project; return sendItems(Object.values(p.sections).flat(), p.name, () => { const txt = msgProject(p); if (txt) sendWA(txt); }); },
@@ -641,7 +641,7 @@ const actions = {
 };
 
 /* ===== لوحة المسؤول ===== */
-const LABEL_KEYS = ['info', 'info_ar', 'info_ku', 'info_en', 'videos', 'maps', 'location', 'prices'];
+const LABEL_KEYS = ['info', 'info_gen', 'info_ar', 'info_ku', 'info_en', 'videos', 'maps', 'location', 'prices'];
 async function viewAdmin(tab = 'users') {
   setView('<div class="spin"></div>');
   const tabs = `<div class="tabs" role="tablist"><a class="tab" role="tab" aria-selected="${tab === 'users'}" href="#/admin/users">${esc(t('tab_users'))}</a><a class="tab" role="tab" aria-selected="${tab === 'settings'}" href="#/admin/settings">${esc(t('tab_settings'))}</a></div>`;
