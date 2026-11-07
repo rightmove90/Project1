@@ -456,7 +456,7 @@ function drawProjects() {
 }
 
 /* ===== صفحة المشروع ===== */
-const SECS = ['info', 'videos', 'maps', 'location', 'prices'];
+const SECS = ['info', 'images', 'videos', 'maps', 'location', 'prices'];
 async function viewProject(id, sec = S.sec, fresh = false) {
   const tok = S.nav; const secOk = SECS.includes(sec) ? sec : null;
   let str = null;
@@ -525,7 +525,7 @@ function drawProject() {
 /* ===== رفع الملفات (للمسؤول) ===== */
 function pickFiles(sec) {
   const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = sec !== 'cover';
-  if (sec === 'cover') inp.accept = 'image/*'; else if (sec === 'videos') inp.accept = 'video/*,application/pdf,image/*';
+  if (sec === 'cover' || sec === 'images') inp.accept = 'image/*'; else if (sec === 'videos') inp.accept = 'video/*,application/pdf,image/*';
   inp.onchange = () => inp.files.length && uploadFiles(sec, [...inp.files]);
   inp.click();
 }
@@ -641,7 +641,7 @@ const actions = {
 };
 
 /* ===== لوحة المسؤول ===== */
-const LABEL_KEYS = ['info', 'info_gen', 'info_ar', 'info_ku', 'info_en', 'videos', 'maps', 'location', 'prices'];
+const LABEL_KEYS = ['info', 'info_gen', 'info_ar', 'info_ku', 'info_en', 'images', 'videos', 'maps', 'location', 'prices'];
 async function viewAdmin(tab = 'users') {
   setView('<div class="spin"></div>');
   const tabs = `<div class="tabs" role="tablist"><a class="tab" role="tab" aria-selected="${tab === 'users'}" href="#/admin/users">${esc(t('tab_users'))}</a><a class="tab" role="tab" aria-selected="${tab === 'settings'}" href="#/admin/settings">${esc(t('tab_settings'))}</a></div>`;
