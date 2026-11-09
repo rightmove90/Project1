@@ -59,7 +59,7 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 80px}
 .search input{width:100%;border:1px solid var(--line);border-radius:var(--r-s);padding:10px 14px 10px 14px;padding-inline-start:42px;background:#fff;min-height:44px}
 .search svg{position:absolute;inset-inline-start:13px;top:50%;transform:translateY(-50%);color:var(--mut)}
 .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
-.pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.pcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
 .pcard:hover{border-color:#9db4c9}
 .cover{display:block;aspect-ratio:16/10;background:#dfe6ec center/cover no-repeat;position:relative;text-decoration:none}
 .cover.fb{background:
@@ -229,3 +229,9 @@ body:has(#selbar) main{padding-bottom:110px}
 /* مؤشر التحديث في وسط الشاشة */
 #busy{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:rgba(255,255,255,.55);backdrop-filter:blur(1px)}
 #busy .spin{margin:0;width:52px;height:52px;border-width:5px}
+
+/* نجمة المفضلة أعلى يسار صورة المشروع */
+.fav{position:absolute;top:8px;left:8px;right:auto;z-index:2;width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(16,32,47,.55);color:#fff;cursor:pointer;backdrop-filter:blur(2px)}
+.fav .i{width:22px;height:22px}
+.fav:hover,.fav:focus-visible{background:rgba(16,32,47,.8)}
+.fav[aria-pressed=true]{background:#fff;color:#e0a800;box-shadow:0 1px 6px rgba(0,0,0,.3)}
