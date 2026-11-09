@@ -109,7 +109,8 @@ main{max-width:1180px;margin:0 auto;padding:20px 16px 80px}
 .blk.drag{outline:3px dashed #6aa7d6;outline-offset:-3px;background:#f2f8fd}
 @media(max-width:620px){
   .f{flex-wrap:wrap}
-  .fn{flex:1 1 calc(100% - 60px)}
+  .fn{flex:1 1 0;min-width:0}
+  .f .nt{flex:1 1 0;min-width:0}
   .fa{flex:1 1 100%;justify-content:flex-end;padding-top:2px}
   .fa .btn{flex:1}
   .fa .btn.wa{flex:2}
@@ -216,7 +217,7 @@ body:has(.toast) #install{bottom:calc(84px + env(safe-area-inset-bottom))}
 
 /* صور مصغرة للملفات */
 .fi.hasth{width:56px;height:56px;border-radius:10px;position:relative;overflow:hidden}
-.fi .th{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff}
+.fi .th{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:transparent}
 
 /* تحديد عدّة ملفات */
 .sel{display:grid;place-items:center;width:30px;height:44px;flex:none;cursor:pointer}
@@ -224,3 +225,7 @@ body:has(.toast) #install{bottom:calc(84px + env(safe-area-inset-bottom))}
 #selbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:60;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 24px);padding:10px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 28px rgba(0,0,0,.22)}
 body:has(#selbar) #install{display:none}
 body:has(#selbar) main{padding-bottom:110px}
+
+/* مؤشر التحديث في وسط الشاشة */
+#busy{position:fixed;inset:0;z-index:90;display:grid;place-items:center;background:rgba(255,255,255,.55);backdrop-filter:blur(1px)}
+#busy .spin{margin:0;width:52px;height:52px;border-width:5px}
