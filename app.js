@@ -583,7 +583,11 @@ const actions = {
     m.el.addEventListener('click', (e) => { const b = e.target.closest('[data-lang]'); if (!b) return; m.close(); setLang(b.dataset.lang); });
   },
   mode(b) { LS.set('sendMode', shareMode() ? 'link' : 'file'); b.innerHTML = modeBtn(); toast(shareMode() ? t('mode_to_file') : t('mode_to_link'), 'ok'); },
-  async refresh() { await api('POST', '/api/refresh'); clearCache(); await route(); toast(t('refreshed'), 'ok'); },
+  async refresh() {
+    if ($('#busy')) return;
+    const o = document.createElement('div'); o.id = 'busy'; o.setAttribute('role', 'status'); o.setAttribute('aria-label', t('refresh')); o.innerHTML = '<div class="spin"></div>'; document.body.appendChild(o);
+    try { await api('POST', '/api/refresh'); clearCache(); await route(); toast(t('refreshed'), 'ok'); } finally { o.remove(); }
+  },
   me() {
     modal({ title: S.me.name, body: `<p class="note">${esc(t('me_account', { u: S.me.username }))}</p>
       <label class="fld"><span>${esc(t('pw_current'))}</span><input id="pw0" type="password" autocomplete="current-password"></label>
