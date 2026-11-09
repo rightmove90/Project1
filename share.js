@@ -5,9 +5,9 @@ const ICON = { image: '🖼️', video: '🎬', pdf: '📄', sheet: '📊', doc:
 const fmtSize = (n) => (!n ? '' : n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB');
 const safeHref = (u) => (/^https?:\/\//i.test(u) ? u : '#');
 const UI = {
-  ar: { dir: 'rtl', loading: 'جارٍ تحميل الملفات…', empty: 'لا توجد ملفات هنا بعد.', bad: 'الرابط غير صالح أو انتهت صلاحيته', fail: 'تعذّر فتح الرابط', err: 'حدث خطأ', back: 'رجوع', files: 'ملفات', exit: 'خروج' },
-  ku: { dir: 'rtl', loading: 'فایلەکان بار دەکرێن…', empty: 'هێشتا هیچ فایلێک لێرە نییە.', bad: 'بەستەرەکە دروست نییە یان بەسەرچووە', fail: 'کردنەوەی بەستەرەکە سەرکەوتوو نەبوو', err: 'هەڵەیەک ڕوویدا', back: 'گەڕانەوە', files: 'فایل', exit: 'دەرچوون' },
-  en: { dir: 'ltr', loading: 'Loading files…', empty: 'No files here yet.', bad: 'This link is invalid or has expired', fail: 'Could not open the link', err: 'Something went wrong', back: 'Back', files: 'files', exit: 'Exit' }
+  ar: { dir: 'rtl', loading: 'جارٍ تحميل الملفات…', empty: 'لا توجد ملفات هنا بعد.', bad: 'الرابط غير صالح أو انتهت صلاحيته', expired: 'انتهت صلاحية هذا الرابط (مدته 48 ساعة). اطلب من المرسل رابطاً جديداً.', fail: 'تعذّر فتح الرابط', err: 'حدث خطأ', back: 'رجوع', files: 'ملفات', exit: 'خروج' },
+  ku: { dir: 'rtl', loading: 'فایلەکان بار دەکرێن…', empty: 'هێشتا هیچ فایلێک لێرە نییە.', bad: 'بەستەرەکە دروست نییە یان بەسەرچووە', expired: 'ماوەی ئەم بەستەرە (٤٨ کاتژمێر) بەسەرچووە. داوا لە نێرەر بکە بەستەرێکی نوێ بنێرێت.', fail: 'کردنەوەی بەستەرەکە سەرکەوتوو نەبوو', err: 'هەڵەیەک ڕوویدا', back: 'گەڕانەوە', files: 'فایل', exit: 'دەرچوون' },
+  en: { dir: 'ltr', loading: 'Loading files…', empty: 'No files here yet.', bad: 'This link is invalid or has expired', expired: 'This link has expired (links last 48 hours). Please ask the sender for a new one.', fail: 'Could not open the link', err: 'Something went wrong', back: 'Back', files: 'files', exit: 'Exit' }
 };
 document.addEventListener('error', (e) => { const i = e.target; if (i && i.tagName === 'IMG' && i.classList.contains('th')) i.remove(); }, true);
 (async function () {
@@ -21,7 +21,7 @@ document.addEventListener('error', (e) => { const i = e.target; if (i && i.tagNa
     const cfg = window.PORTAL || {};
     const res = await fetch(cfg.API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'shareView', t }) });
     const j = await res.json();
-    if (!j.ok) throw new Error(j.status === 404 ? ui.bad : ui.err);
+    if (!j.ok) throw new Error(j.status === 410 ? ui.expired : j.status === 404 ? ui.bad : ui.err);
     const d = j.data; const tx = (d.texts && d.texts[lang]) || d.texts.ar; const L = tx.labels;
     document.title = d.title + ' — ' + tx.siteName;
     document.getElementById('site').textContent = tx.siteName;
