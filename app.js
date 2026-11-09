@@ -82,6 +82,8 @@ const IC = {
   user: P('<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-3.5 3.4-5.5 7-5.5s6.4 2 7 5.5"/>'),
   globe: P('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5s-1.2 6.1-3.6 8.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.600 5.900 12 3.500z"/>'),
   edit: P('<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>'),
+  star: P('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z"/>'),
+  star_on: `<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="fill:currentColor"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z"/></svg>`,
   site: P('<path d="M4 20V10l5-3v13M9 20V4l6 3v13M15 20v-8l5 3v5M2 20h20"/>'),
 };
 const CAT_IC = { video: IC.video, image: IC.image, pdf: IC.pdf, sheet: IC.sheet, doc: IC.doc, audio: IC.audio, link: IC.link, text: IC.text, other: IC.other };
@@ -443,9 +445,15 @@ function cover(p, cls = '') {
   return p.coverUrl ? `<span class="cover ${cls}" style="background-image:url('${esc(p.coverUrl)}')" role="img" aria-label="${esc(p.name)}"></span>`
     : `<span class="cover fb ${cls}"><span>${esc([...p.name][0] || '')}</span></span>`;
 }
+/* المفضلة: تُحفظ على جهاز الموظف وتظهر مشاريعها أولاً دائماً */
+const favKey = () => 'favs_' + ((S.me && (S.me.id || S.me.username)) || '');
+const getFavs = () => { try { return new Set(JSON.parse(LS.get(favKey()) || '[]')); } catch { return new Set(); } };
+const saveFavs = (set) => LS.set(favKey(), JSON.stringify([...set]));
 function drawProjects() {
-  const q = norm(S.q); const list = S.projects.filter((p) => !q || norm(p.name).includes(q)); const admin = S.me.role === 'admin';
-  const cards = list.map((p) => `<article class="pcard"><a class="cover-link" href="#/p/${encodeURIComponent(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
+  const favs = getFavs();
+  const q = norm(S.q); const list = S.projects.filter((p) => !q || norm(p.name).includes(q))
+    .map((p, i) => ({ p, i })).sort((a, b) => (favs.has(b.p.id) - favs.has(a.p.id)) || (a.i - b.i)).map((x) => x.p); const admin = S.me.role === 'admin';
+  const cards = list.map((p) => `<article class="pcard${favs.has(p.id) ? ' isfav' : ''}"><button class="fav" data-act="fav" data-id="${esc(p.id)}" aria-pressed="${favs.has(p.id)}" title="${esc(t(favs.has(p.id) ? 'fav_remove' : 'fav_add'))}" aria-label="${esc(t(favs.has(p.id) ? 'fav_remove' : 'fav_add'))}: ${esc(p.name)}">${favs.has(p.id) ? IC.star_on : IC.star}</button><a class="cover-link" href="#/p/${encodeURIComponent(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
     <h2><a href="#/p/${encodeURIComponent(p.id)}">${esc(p.name)}</a></h2>
     <div class="row"><a class="btn sm" href="#/p/${encodeURIComponent(p.id)}">${esc(t('open_project'))}</a>
     <button class="btn sm wa" data-act="send-project-id" data-id="${esc(p.id)}">${IC.wa}<span>${esc(t('send_project'))}</span></button></div></article>`).join('');
@@ -577,6 +585,11 @@ function wireDrop() {
 /* ===== الإجراءات ===== */
 const findItem = (id) => Object.values(S.project.sections).flat().find((i) => i.id === id);
 const actions = {
+  fav(b) {
+    const f = getFavs(); const id = b.dataset.id; if (f.has(id)) f.delete(id); else f.add(id);
+    saveFavs(f); const typing = document.activeElement && document.activeElement.id === 'q'; drawProjects();
+    const nb = $(`.fav[data-id="${CSS.escape(id)}"]`); if (nb && !typing) nb.focus({ preventScroll: true });
+  },
   back(b) { if (S.idx > 0) history.back(); else navigate((b && b.getAttribute('href')) || '#/'); },
   lang() {
     const m = modal({ title: t('language'), body: `<div class="langlist">${Object.keys(I.langs).map((c) => `<button class="langopt${c === S.lang ? ' on' : ''}" data-lang="${c}" lang="${c}" dir="${I.langs[c].dir}">${esc(I.langs[c].name)}</button>`).join('')}</div>` });
