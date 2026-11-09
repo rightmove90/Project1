@@ -18,8 +18,19 @@ const cset = (k, v) => {
 const cdel = (k) => { try { localStorage.removeItem(CP + k); } catch { /* */ } };
 function clearCache() { try { Object.keys(localStorage).filter((x) => x.startsWith(CP)).forEach((x) => localStorage.removeItem(x)); } catch { /* */ } S.praw = {}; S.ptime = {}; S.listTime = 0; S.listStr = ''; }
 function invalidateList() { S.projects = null; S.listTime = 0; cdel('projects'); }
+/* روابط المشاركة صالحة 48 ساعة من إصدارها: نتأكد أن بيانات المشروع (وفيها الروابط) حديثة قبل بناء أي رسالة */
+function markTok(id) { S.tokAt[id] = Date.now(); LS.set(CP + 'tat_' + id, String(S.tokAt[id])); }
+async function freshTokens() {
+  const p = S.project; if (!p) return;
+  if (Date.now() - (S.tokAt[p.id] || 0) < 3600 * 1000) return;
+  try {
+    const r = await rpc('project', { id: p.id }); const ns = JSON.stringify(r);
+    S.ptime[p.id] = Date.now(); S.praw[p.id] = ns; cset('p_' + p.id, r); markTok(p.id);
+    if (S.project && S.project.id === p.id) S.project = normProject(r.project);
+  } catch { /* نكمل بالمتاح */ }
+}
 function invalidateProject(id) { delete S.praw[id]; delete S.ptime[id]; cdel('p_' + id); }
-const S = { sel: new Set(), selKey: '', nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
+const S = { tokAt: {}, sel: new Set(), selKey: '', nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
 
 /* ===== اللغة ===== */
 const I = window.I18N;
@@ -436,7 +447,7 @@ async function prefetchProjects() {
   const worker = async () => {
     while (ids.length && S.me) {
       const id = ids.shift();
-      try { const r = await rpc('project', { id }); S.ptime[id] = Date.now(); S.praw[id] = JSON.stringify(r); cset('p_' + id, r); } catch { /* */ }
+      try { const r = await rpc('project', { id }); S.ptime[id] = Date.now(); S.praw[id] = JSON.stringify(r); cset('p_' + id, r); markTok(id); } catch { /* */ }
     }
   };
   await Promise.all([worker(), worker()]); pfRun = false;
@@ -473,11 +484,11 @@ async function viewProject(id, sec = S.sec, fresh = false) {
   let str = null;
   if (!fresh) { str = S.praw[id] || null; if (!str) { const c = cget('p_' + id); if (c && c.project) str = JSON.stringify(c); } }
   const show = (x) => { S.project = normProject(JSON.parse(x).project); S.sec = secOk; drawProject(); };
-  if (str) { S.praw[id] = str; show(str); if (S.ptime[id] && Date.now() - S.ptime[id] < 45000) return; }
+  if (str) { S.praw[id] = str; S.tokAt[id] = S.tokAt[id] || +LS.get(CP + 'tat_' + id) || 0; show(str); if (S.ptime[id] && Date.now() - S.ptime[id] < 45000) return; }
   else setView('<div class="spin"></div>');
   let r;
   try { r = await rpc('project', { id }); } catch (e) { if (!str) throw e; return; }
-  const ns = JSON.stringify(r); S.ptime[id] = Date.now(); S.praw[id] = ns; cset('p_' + id, r);
+  const ns = JSON.stringify(r); S.ptime[id] = Date.now(); S.praw[id] = ns; cset('p_' + id, r); markTok(id);
   if (tok !== S.nav && !fresh) return;
   if (!str || ns !== str) show(ns);
 }
@@ -617,12 +628,12 @@ const actions = {
     if (it.category === 'video' || it.category === 'pdf') return modal({ wide: true, body: `<div class="viewer">${x}<iframe class="${it.category === 'video' ? 'v' : ''}" src="${esc(it.previewUrl)}" allow="autoplay; fullscreen" allowfullscreen title="${esc(it.name)}"></iframe>${cap}</div>` });
     window.open(it.openUrl, '_blank', 'noopener');
   },
-  'send-file'(b) { const it = findItem(b.dataset.id); if (it) return sendItems([it], S.project.name, () => sendWA(msgFile(S.project, it))); },
+  async 'send-file'(b) { await freshTokens(); const it = findItem(b.dataset.id); if (it) return sendItems([it], S.project.name, () => sendWA(msgFile(S.project, it))); },
   sel(b) { if (b.checked) S.sel.add(b.dataset.id); else S.sel.delete(b.dataset.id); updateSelBar(); },
   'sel-all'() { $$('input[data-act=sel]').forEach((c) => { c.checked = true; S.sel.add(c.dataset.id); }); updateSelBar(); },
   'sel-clear'() { S.sel.clear(); $$('input[data-act=sel]').forEach((c) => { c.checked = false; }); updateSelBar(); },
-  'send-selected'() {
-    const p = S.project; const items = [...S.sel].map(findItem).filter(Boolean);
+  async 'send-selected'() {
+    await freshTokens(); const p = S.project; const items = [...S.sel].map(findItem).filter(Boolean);
     if (!items.length) return;
     const label = L()[S.sec] || '';
     return sendItems(items, p.name, () => {
@@ -632,12 +643,12 @@ const actions = {
     });
   },
   'send-note'(b) { const it = findItem(b.dataset.id); if (it) sendWA(it.text); },
-  'send-section'(b) {
-    const k = b.dataset.sec; const p = S.project;
+  async 'send-section'(b) {
+    await freshTokens(); const k = b.dataset.sec; const p = S.project;
     const keys = k === 'info' ? INFO_KEYS : [k];
     return sendItems(keys.flatMap((x) => p.sections[x]), p.name, () => { const txt = msgSection(p, keys, k === 'info' ? L().info : secLabel(k), p.sectionShareUrls[k]); if (txt) sendWA(txt); });
   },
-  'send-project'() { const p = S.project; return sendItems(Object.values(p.sections).flat(), p.name, () => { const txt = msgProject(p); if (txt) sendWA(txt); }); },
+  async 'send-project'() { await freshTokens(); const p = S.project; return sendItems(Object.values(p.sections).flat(), p.name, () => { const txt = msgProject(p); if (txt) sendWA(txt); }); },
   async 'send-project-id'(b) {
     const { project } = await api('GET', '/api/projects/' + encodeURIComponent(b.dataset.id));
     return sendItems(Object.values(project.sections).flat(), project.name, () => { const txt = msgProject(project); if (txt) sendWA(txt); }, false);
