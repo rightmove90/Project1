@@ -407,7 +407,7 @@ function renderLogin() {
     <p class="note" style="text-align:center;margin:14px 0 0">${esc(t('login_stay'))}</p></form></div>`;
   $('#lf').onsubmit = async (ev) => {
     ev.preventDefault(); const f = new FormData(ev.target); const btn = $('button[type=submit]', ev.target); btn.disabled = true;
-    try { const r = await api('POST', '/api/login', { username: f.get('username'), password: f.get('password') }); S.me = r.user; await start(); }
+    try { const r = await api('POST', '/api/login', { username: f.get('username'), password: f.get('password') }); S.me = r.user; LS.set('lastRefresh', String(Date.now())); await start(); }
     catch (err) { S.me = null; $('#le').innerHTML = `<div class="err">${esc(err.message)}</div>`; btn.disabled = false; }
   };
 }
@@ -599,7 +599,7 @@ const actions = {
   async refresh() {
     if ($('#busy')) return;
     const o = document.createElement('div'); o.id = 'busy'; o.setAttribute('role', 'status'); o.setAttribute('aria-label', t('refresh')); o.innerHTML = '<div class="spin"></div>'; document.body.appendChild(o);
-    try { await api('POST', '/api/refresh'); clearCache(); await route(); toast(t('refreshed'), 'ok'); } finally { o.remove(); }
+    try { await api('POST', '/api/refresh'); clearCache(); LS.set('lastRefresh', String(Date.now())); await route(); toast(t('refreshed'), 'ok'); } finally { o.remove(); }
   },
   me() {
     modal({ title: S.me.name, body: `<p class="note">${esc(t('me_account', { u: S.me.username }))}</p>
@@ -798,6 +798,26 @@ async function start() {
   cset('me', S.me); cset('cfg', S.cfg);
   shell('<div class="spin"></div>'); await route();
 }
+/* تحديث تلقائي كل 48 ساعة عند فتح التطبيق: يجلب أحدث نسخة من الواجهة ويمسح بيانات المشاريع المحفوظة ثم يعيد التحميل */
+const AUTO_REFRESH_MS = 48 * 3600 * 1000;
+let autoRefreshing = false;
+async function maybeAutoRefresh() {
+  if (autoRefreshing || !S.me || modals.length || !navigator.onLine) return;
+  const last = +LS.get('lastRefresh') || 0;
+  if (!last) { LS.set('lastRefresh', String(Date.now())); return; }
+  if (Date.now() - last < AUTO_REFRESH_MS) return;
+  autoRefreshing = true;
+  const o = document.createElement('div'); o.id = 'busy'; o.setAttribute('role', 'status'); o.innerHTML = '<div class="spin"></div>'; document.body.appendChild(o);
+  try {
+    // أحدث نسخة من ملفات الواجهة (تجاوز ذاكرة المتصفح)
+    const files = ['./', 'app.js', 'i18n.js', 'style.css', 'config.js', 'share.js', 'share.html', 'manifest.webmanifest', 'sw.js'];
+    await Promise.all(files.map((u) => fetch(u, { cache: 'reload' }).catch(() => {})));
+    try { if (navigator.serviceWorker) { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); } } catch { /* */ }
+    try { await rpc('refresh'); } catch { /* */ }
+    clearCache(); LS.set('lastRefresh', String(Date.now()));
+  } catch { /* نكمل بما هو متاح */ }
+  location.reload();
+}
 (async function boot() {
   S.lang = detectLang(); applyLang();
   history.replaceState({ idx: 0 }, '');
@@ -811,6 +831,7 @@ async function start() {
     const cm = cget('me'); const cc = cget('cfg');
     if (cm && cc && cc.texts) {
       S.me = cm; S.cfg = cc; applyLang(); shell('<div class="spin"></div>'); route();
+      maybeAutoRefresh();
       api('GET', '/api/me').then((r) => { S.me = r.user; cset('me', r.user); }).catch(() => {});
       api('GET', '/api/config').then((c) => {
         if (!c.texts || JSON.stringify(c) === JSON.stringify(S.cfg) || !S.me) return;
@@ -818,10 +839,12 @@ async function start() {
       }).catch(() => {});
       return;
     }
-    try { const r = await api('GET', '/api/me'); S.me = r.user; await start(); return; }
+    try { const r = await api('GET', '/api/me'); S.me = r.user; await start(); maybeAutoRefresh(); return; }
     catch (e) { const msg = S.me ? e.message : ''; S.me = null; return showLogin(msg); }
   }
   showLogin();
 })();
 /* إبقاء الخلفية جاهزة (تجنّب البدء البارد في Apps Script) */
 setInterval(() => { if (S.me && document.visibilityState === 'visible') rpc('public').catch(() => {}); }, 4 * 60 * 1000);
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') maybeAutoRefresh(); });
