@@ -35,8 +35,49 @@ document.addEventListener('error', (e) => { const i = e.target; if (i && i.tagNa
       try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) { /* */ }
       if (fromPop !== true && history.state && history.state.viewer) history.back();
     };
+    // مشغّل فيديو: بقياسه الحقيقي (دون قص)، بلا أي شيء فوقه سوى زر الخروج؛ لمسة على الشاشة تُظهر شريط التقدم، ولمستان على اليمين/اليسار تقدّمان/ترجعان 10 ثوانٍ
+    const fmtT = (x) => { x = Math.max(0, Math.floor(x || 0)); const h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), sc = x % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(sc).padStart(2, '0'); };
+    const openVideo = (id, name) => {
+      closeViewer(true);
+      const v = document.createElement('div'); v.id = 'viewer'; v.className = 'vv'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
+      v.innerHTML = `<video playsinline autoplay preload="auto" aria-label="${esc(name)}"></video><div class="vtap"></div>
+        <button class="vx vxf" type="button">✕ ${esc(ui.exit)}</button>
+        <div class="vctl" hidden><button class="vp" type="button" aria-label="play/pause">⏸</button><span class="vt" dir="ltr">0:00</span><input class="vs" type="range" min="0" max="1000" value="0" step="1" dir="ltr" aria-label="${esc(name)}"><span class="vd" dir="ltr">0:00</span></div>`;
+      document.body.appendChild(v); document.body.style.overflow = 'hidden';
+      const vid = v.querySelector('video'); const ctl = v.querySelector('.vctl'); const slider = v.querySelector('.vs'); const pp = v.querySelector('.vp');
+      const key = (window.PORTAL || {}).DRIVE_API_KEY;
+      const srcs = []; if (key) srcs.push(`https://www.googleapis.com/drive/v3/files/${id}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(key)}`);
+      srcs.push(`https://drive.google.com/uc?export=download&id=${id}`);
+      let si = 0; let dragging = false; let hideT = null; let dead = false;
+      const fallbackIframe = () => { dead = true; v.className = ''; v.innerHTML = `<div class="vbar"><span class="vn">${esc(name)}</span><button class="vx" type="button">✕ ${esc(ui.exit)}</button></div><div class="vbody"><iframe src="https://drive.google.com/file/d/${id}/preview" allow="autoplay; fullscreen" allowfullscreen title="${esc(name)}"></iframe></div>`; v.querySelector('.vx').onclick = () => closeViewer(); };
+      const next = () => { if (si < srcs.length) { vid.src = srcs[si++]; vid.load(); const pr = vid.play(); if (pr && pr.catch) pr.catch(() => showCtl(true)); } else fallbackIframe(); };
+      vid.addEventListener('error', next);
+      const hideCtl = () => { ctl.hidden = true; };
+      const showCtl = (keep) => { ctl.hidden = false; clearTimeout(hideT); if (!keep) hideT = setTimeout(() => { if (!vid.paused && !dragging) hideCtl(); }, 3500); };
+      const sync = () => { if (dead) return; if (!dragging && vid.duration) slider.value = Math.round((vid.currentTime / vid.duration) * 1000); v.querySelector('.vt').textContent = fmtT(vid.currentTime); v.querySelector('.vd').textContent = fmtT(vid.duration); };
+      vid.addEventListener('timeupdate', sync); vid.addEventListener('loadedmetadata', sync);
+      vid.addEventListener('play', () => { pp.textContent = '⏸'; }); vid.addEventListener('pause', () => { pp.textContent = '▶'; if (!dead) showCtl(true); });
+      pp.onclick = () => { if (vid.paused) vid.play().catch(() => {}); else vid.pause(); showCtl(vid.paused); };
+      slider.addEventListener('input', () => { dragging = true; if (vid.duration) vid.currentTime = (slider.value / 1000) * vid.duration; showCtl(true); });
+      slider.addEventListener('change', () => { dragging = false; showCtl(); });
+      let lastTap = 0; let lastSide = ''; let tapT = null;
+      v.querySelector('.vtap').addEventListener('click', (e) => {
+        const r = e.currentTarget.getBoundingClientRect(); const side = (e.clientX - r.left) < r.width / 2 ? 'l' : 'r'; const now = Date.now();
+        if (now - lastTap < 300 && side === lastSide) {
+          clearTimeout(tapT); lastTap = 0;
+          vid.currentTime = Math.max(0, Math.min(vid.duration || 1e9, vid.currentTime + (side === 'r' ? 10 : -10))); showCtl(); return; // يمين = تقديم، يسار = ترجيع
+        }
+        lastTap = now; lastSide = side;
+        clearTimeout(tapT); tapT = setTimeout(() => { if (ctl.hidden) showCtl(); else hideCtl(); }, 260);
+      });
+      v.querySelector('.vx').onclick = () => closeViewer();
+      history.pushState({ viewer: 1 }, '');
+      try { if (v.requestFullscreen) v.requestFullscreen().catch(() => {}); } catch (e) { /* */ }
+      next();
+    };
     const openViewer = (id, cat, name) => {
       closeViewer(true);
+      if (cat === 'video') return openVideo(id, name);
       const v = document.createElement('div'); v.id = 'viewer'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true');
       const body = cat === 'image'
         ? `<img alt="${esc(name)}" src="https://drive.google.com/thumbnail?id=${id}&sz=w2400">`
