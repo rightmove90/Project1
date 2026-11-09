@@ -19,7 +19,7 @@ const cdel = (k) => { try { localStorage.removeItem(CP + k); } catch { /* */ } }
 function clearCache() { try { Object.keys(localStorage).filter((x) => x.startsWith(CP)).forEach((x) => localStorage.removeItem(x)); } catch { /* */ } S.praw = {}; S.ptime = {}; S.listTime = 0; S.listStr = ''; }
 function invalidateList() { S.projects = null; S.listTime = 0; cdel('projects'); }
 function invalidateProject(id) { delete S.praw[id]; delete S.ptime[id]; cdel('p_' + id); }
-const S = { nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
+const S = { sel: new Set(), selKey: '', nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
 
 /* ===== اللغة ===== */
 const I = window.I18N;
@@ -382,13 +382,16 @@ function shell(inner) {
   applyLang();
   $('#clientNum').addEventListener('input', (e) => LS.set('clientNum', e.target.value));
 }
-function setView(html) { const v = $('#view'); if (v) v.innerHTML = html; else shell(html); }
+function setView(html) { const sb = $('#selbar'); if (sb) sb.remove(); const v = $('#view'); if (v) v.innerHTML = html; else shell(html); }
 
 document.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (b.tagName === 'A') e.preventDefault();
   try { await actions[b.dataset.act]?.(b, e); } catch (err) { toast(err.message, 'err'); }
 });
+
+// إن لم تتوفر صورة مصغرة (أو لم تُنشأ بعد) تبقى أيقونة النوع
+document.addEventListener('error', (e) => { const i = e.target; if (i && i.tagName === 'IMG' && i.classList.contains('th')) i.remove(); }, true);
 
 /* ===== تسجيل الدخول ===== */
 function renderLogin() {
@@ -471,16 +474,24 @@ async function viewProject(id, sec = S.sec, fresh = false) {
   if (!str || ns !== str) show(ns);
 }
 const count = (arr) => (arr.length ? `<span class="cnt">${arr.length}</span>` : '');
+const selBox = (it) => `<label class="sel"><input type="checkbox" data-act="sel" data-id="${esc(it.id)}"${S.sel.has(it.id) ? ' checked' : ''} aria-label="${esc(t('sel_item', { name: it.name }))}"></label>`;
+function updateSelBar() {
+  let bar = $('#selbar'); const n = S.sel.size;
+  if (!n) { if (bar) bar.remove(); return; }
+  if (!bar) { bar = document.createElement('div'); bar.id = 'selbar'; document.body.appendChild(bar); }
+  bar.innerHTML = `<button class="btn wa" data-act="send-selected">${IC.wa}<span>${esc(t('sel_send', { n }))}</span></button>
+    <button class="btn" data-act="sel-all">${esc(t('sel_all'))}</button><button class="btn" data-act="sel-clear">${esc(t('sel_clear'))}</button>`;
+}
 function fileRow(it) {
   const admin = S.me.role === 'admin';
   const del = admin ? `<button class="iconb" data-act="del-file" data-id="${esc(it.id)}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))} ${esc(it.name)}">${IC.trash}</button>` : '';
   if (it.kind === 'text') {
-    return `<li class="f note" data-id="${esc(it.id)}"><span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}</b><p>${esc(it.text)}</p></div>
+    return `<li class="f note" data-id="${esc(it.id)}">${selBox(it)}<span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}</b><p>${esc(it.text)}</p></div>
       <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${del}</div></li>`;
   }
   const size = fmtSize(it.size);
-  return `<li class="f" data-id="${esc(it.id)}">
-    <span class="fi ${it.category}">${CAT_IC[it.category] || IC.other}</span>
+  return `<li class="f" data-id="${esc(it.id)}">${selBox(it)}
+    <span class="fi ${it.category} hasth">${CAT_IC[it.category] || IC.other}<img class="th" loading="lazy" decoding="async" alt="" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(it.id)}&sz=w240"></span>
     <button class="fn" data-act="open-file" data-id="${esc(it.id)}">${esc(it.name)}${size ? `<small><bdi dir="ltr">${size}</bdi></small>` : ''}</button>
     <div class="fa"><button class="btn sm" data-act="open-file" data-id="${esc(it.id)}" title="${esc(t('open'))}">${IC.open}<span>${esc(t('open'))}</span></button>
     <button class="btn sm wa" data-act="send-file" data-id="${esc(it.id)}" title="${esc(t('send'))}">${IC.wa}<span>${esc(t('send'))}</span></button>${del}</div></li>`;
@@ -503,7 +514,9 @@ const INFO_KEYS = ['info_gen', 'info_ar', 'info_ku', 'info_en'];
 const secCount = (p, k) => (k === 'info' ? INFO_KEYS : [k]).reduce((n, x) => n + p.sections[x].length, 0);
 function drawProject() {
   const p = S.project; const admin = S.me.role === 'admin'; const sec = S.sec; const pid = encodeURIComponent(p.id);
+  const key = sec ? p.id + '/' + sec : ''; if (key !== S.selKey) { S.sel = new Set(); S.selKey = key; }
   if (sec) {
+    const have = new Set(Object.values(p.sections).flat().map((i) => i.id)); S.sel = new Set([...S.sel].filter((x) => have.has(x)));
     const body = sec === 'info'
       ? `<section class="grp"><div class="sub">${INFO_KEYS.map(block).join('')}</div></section>` : block(sec);
     setView(`<a class="crumb" href="#/p/${pid}" data-act="back">${IC.back}<span>${esc(p.name)}</span></a>
@@ -511,8 +524,10 @@ function drawProject() {
       <button class="btn wa" data-act="send-section" data-sec="${sec}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div>
     <div class="stack">${body}</div>`);
     if (admin) wireDrop();
+    updateSelBar();
     return;
   }
+  updateSelBar();
   setView(`<a class="crumb" href="#/" data-act="back">${IC.back}<span>${esc(TX().projectsTitle)}</span></a>
   <div class="phead">${cover(p, 'pc')}<h1>${esc(p.name)}</h1>
     <div class="acts"><button class="btn wa" data-act="send-project">${IC.wa}<span>${esc(t('send_project_all'))}</span></button></div></div>
@@ -586,6 +601,19 @@ const actions = {
     window.open(it.openUrl, '_blank', 'noopener');
   },
   'send-file'(b) { const it = findItem(b.dataset.id); if (it) return sendItems([it], S.project.name, () => sendWA(msgFile(S.project, it))); },
+  sel(b) { if (b.checked) S.sel.add(b.dataset.id); else S.sel.delete(b.dataset.id); updateSelBar(); },
+  'sel-all'() { $$('input[data-act=sel]').forEach((c) => { c.checked = true; S.sel.add(c.dataset.id); }); updateSelBar(); },
+  'sel-clear'() { S.sel.clear(); $$('input[data-act=sel]').forEach((c) => { c.checked = false; }); updateSelBar(); },
+  'send-selected'() {
+    const p = S.project; const items = [...S.sel].map(findItem).filter(Boolean);
+    if (!items.length) return;
+    const label = L()[S.sec] || '';
+    return sendItems(items, p.name, () => {
+      const txt = `${intro(p)}\n\n*${label}*\n\n${lines(items)}`;
+      if (tooLong(txt)) return toast(t('sel_too_long'), 'err');
+      sendWA(txt);
+    });
+  },
   'send-note'(b) { const it = findItem(b.dataset.id); if (it) sendWA(it.text); },
   'send-section'(b) {
     const k = b.dataset.sec; const p = S.project;
