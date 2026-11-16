@@ -510,18 +510,19 @@ function updateSelBar() {
 function fileRow(it) {
   const admin = S.me.role === 'admin';
   const del = admin ? `<button class="iconb" data-act="del-file" data-id="${esc(it.id)}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))} ${esc(it.name)}">${IC.trash}</button>` : '';
+  const rn = admin ? `<button class="iconb" data-act="rename-file" data-id="${esc(it.id)}" title="${esc(t('rename'))}" aria-label="${esc(t('rename'))} ${esc(it.name)}">${IC.edit}</button>` : '';
   const lt = it.langsSet && it.langsSet.length ? `<span class="lt" title="${esc(t('flang_label'))}">${it.langsSet.map((l) => esc(I.langs[l].short)).join('·')}</span>` : '';
   const lb = admin ? `<button class="iconb" data-act="item-langs" data-id="${esc(it.id)}" title="${esc(t('lang_tag_btn'))}" aria-label="${esc(t('lang_tag_btn'))} ${esc(it.name)}">${IC.globe}</button>` : '';
   if (it.kind === 'text') {
     return `<li class="f note" data-id="${esc(it.id)}">${selBox(it)}<span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}${lt}</b><p>${esc(it.text)}</p></div>
-      <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${lb}${del}</div></li>`;
+      <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${lb}${rn}${del}</div></li>`;
   }
   const size = fmtSize(it.size);
   return `<li class="f" data-id="${esc(it.id)}">${selBox(it)}
     <span class="fi ${it.category} hasth">${CAT_IC[it.category] || IC.other}<img class="th" loading="lazy" decoding="async" alt="" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(it.id)}&sz=w240"></span>
     <button class="fn" data-act="open-file" data-id="${esc(it.id)}">${esc(it.name)}${size ? `<small><bdi dir="ltr">${size}</bdi></small>` : ''}${lt}</button>
     <div class="fa"><button class="btn sm" data-act="open-file" data-id="${esc(it.id)}" title="${esc(t('open'))}">${IC.open}<span>${esc(t('open'))}</span></button>
-    <button class="btn sm wa" data-act="send-file" data-id="${esc(it.id)}" title="${esc(t('send'))}">${IC.wa}<span>${esc(t('send'))}</span></button>${lb}${del}</div></li>`;
+    <button class="btn sm wa" data-act="send-file" data-id="${esc(it.id)}" title="${esc(t('send'))}">${IC.wa}<span>${esc(t('send'))}</span></button>${lb}${rn}${del}</div></li>`;
 }
 function adminTools(k) {
   if (S.me.role !== 'admin') return '';
@@ -732,6 +733,16 @@ const actions = {
         await api('POST', `/api/projects/${encodeURIComponent(S.project.id)}/notes`, { section: sec, title: $('#nt').value, text: $('#nx').value });
         toast(t('note_added'), 'ok'); await viewProject(S.project.id, S.sec, true);
       } }] });
+  },
+  'rename-file'(b) {
+    const it = findItem(b.dataset.id); if (!it) return;
+    modal({ title: t('rnf_title'), body: `<label class="fld"><span>${esc(t('rnf_name'))}</span><input id="rfn" maxlength="120" value="${esc(it.name)}"></label>`,
+      actions: [{ label: t('cancel') }, { label: t('save'), cls: 'pri', async run(ov) {
+        const name = $('#rfn', ov).value.trim(); if (!name) throw new Error(t('rnf_empty'));
+        await rpc('renameFile', { id: it.id, name }); toast(t('file_renamed'), 'ok');
+        invalidateProject(S.project.id); await viewProject(S.project.id, S.sec, true);
+      } }] });
+    setTimeout(() => { const i = $('#rfn'); if (i) { i.focus(); i.select(); } }, 50);
   },
   async 'del-file'(b) {
     const it = findItem(b.dataset.id); if (!it || !confirm(t('del_file_q', { name: it.name }))) return;
