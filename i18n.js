@@ -17,7 +17,7 @@ window.I18N = {
     rename: 'تغيير الاسم', cover: 'صورة الغلاف', delete_project: 'حذف المشروع',
     upload: 'رفع ملفات', add_link: 'رابط', add_link_video: 'رابط فيديو', add_link_loc: 'رابط موقع', add_text: 'إضافة نص',
     send_section: 'إرسال القسم', none_admin: 'لا توجد ملفات. ارفع ملفاً أو اسحبه إلى هنا.', none_sales: 'لا توجد ملفات في هذا القسم.',
-    open: 'فتح', send: 'إرسال', sel_send: 'إرسال المحدد ({n})', sel_all: 'تحديد الكل', sel_clear: 'إلغاء التحديد', sel_item: 'تحديد {name}', sel_too_long: 'المحدد كثير لرسالة واحدة، قلّل عدد الملفات أو أرسلها كملفات.', fav_add: 'إضافة إلى المفضلة', fav_remove: 'إزالة من المفضلة', send_text: 'إرسال النص', delete: 'حذف', cancel: 'إلغاء', add: 'إضافة', create: 'إنشاء', save: 'حفظ', close: 'إغلاق',
+    open: 'فتح', send: 'إرسال', sel_send: 'إرسال المحدد ({n})', sel_all: 'تحديد الكل', sel_clear: 'إلغاء التحديد', sel_item: 'تحديد {name}', sel_too_long: 'المحدد كثير لرسالة واحدة، قلّل عدد الملفات أو أرسلها كملفات.', fav_add: 'إضافة إلى المفضلة', fav_remove: 'إزالة من المفضلة', flang_label: 'اللغة', flang_all: 'الكل', lang_tag_btn: 'اللغات', lang_tag_title: 'لغات عرض الملف', lang_tag_title_n: 'لغات عرض الملفات المحددة ({n})', lang_tag_hint: 'اختر لغة أو أكثر. إن لم تختر شيئاً يظهر الملف لكل اللغات.', lang_tag_saved: 'تم حفظ اللغات', none_filtered: 'لا توجد ملفات بهذه اللغة.', v_prev: 'السابق', v_next: 'التالي', send_text: 'إرسال النص', delete: 'حذف', cancel: 'إلغاء', add: 'إضافة', create: 'إنشاء', save: 'حفظ', close: 'إغلاق',
     open_in_drive: 'فتح في Drive',
     link_title: 'إضافة رابط', link_label: 'العنوان الذي سيظهر', link_url: 'الرابط',
     link_ph_video: 'مثال: جولة المشروع على يوتيوب', link_ph_loc: 'مثال: الموقع على خرائط Google', link_ph: 'عنوان الرابط',
@@ -80,7 +80,7 @@ window.I18N = {
     rename: 'گۆڕینی ناو', cover: 'وێنەی بەرگ', delete_project: 'سڕینەوەی پڕۆژە',
     upload: 'بارکردنی فایل', add_link: 'بەستەر', add_link_video: 'بەستەری ڤیدیۆ', add_link_loc: 'بەستەری شوێن', add_text: 'زیادکردنی دەق',
     send_section: 'ناردنی بەش', none_admin: 'هیچ فایلێک نییە. فایلێک باربکە یان ڕایبکێشە بۆ ئێرە.', none_sales: 'هیچ فایلێک لەم بەشەدا نییە.',
-    open: 'کردنەوە', send: 'ناردن', sel_send: 'ناردنی دیاریکراوەکان ({n})', sel_all: 'هەموو دیاری بکە', sel_clear: 'هەڵوەشاندنەوەی دیاریکردن', sel_item: 'دیاریکردنی {name}', sel_too_long: 'دیاریکراوەکان زۆرن بۆ یەک نامە، ژمارەی فایلەکان کەم بکەرەوە یان وەک فایل بینێرە.', fav_add: 'زیادکردن بۆ دڵخوازەکان', fav_remove: 'لابردن لە دڵخوازەکان', send_text: 'ناردنی دەق', delete: 'سڕینەوە', cancel: 'هەڵوەشاندنەوە', add: 'زیادکردن', create: 'دروستکردن', save: 'پاشەکەوتکردن', close: 'داخستن',
+    open: 'کردنەوە', send: 'ناردن', sel_send: 'ناردنی دیاریکراوەکان ({n})', sel_all: 'هەموو دیاری بکە', sel_clear: 'هەڵوەشاندنەوەی دیاریکردن', sel_item: 'دیاریکردنی {name}', sel_too_long: 'دیاریکراوەکان زۆرن بۆ یەک نامە، ژمارەی فایلەکان کەم بکەرەوە یان وەک فایل بینێرە.', fav_add: 'زیادکردن بۆ دڵخوازەکان', fav_remove: 'لابردن لە دڵخوازەکان', flang_label: 'زمان', flang_all: 'هەموو', lang_tag_btn: 'زمانەکان', lang_tag_title: 'زمانەکانی پیشاندانی فایل', lang_tag_title_n: 'زمانەکانی فایلە دیاریکراوەکان ({n})', lang_tag_hint: 'یەک زمان یان زیاتر هەڵبژێرە. ئەگەر هیچ هەڵنەبژێریت فایلەکە بۆ هەموو زمانەکان دەردەکەوێت.', lang_tag_saved: 'زمانەکان پاشەکەوت کران', none_filtered: 'هیچ فایلێک بەم زمانە نییە.', v_prev: 'پێشوو', v_next: 'دواتر', send_text: 'ناردنی دەق', delete: 'سڕینەوە', cancel: 'هەڵوەشاندنەوە', add: 'زیادکردن', create: 'دروستکردن', save: 'پاشەکەوتکردن', close: 'داخستن',
     open_in_drive: 'کردنەوە لە Drive',
     link_title: 'زیادکردنی بەستەر', link_label: 'ئەو ناونیشانەی پیشان دەدرێت', link_url: 'بەستەر',
     link_ph_video: 'نموونە: گەشتی پڕۆژە لە یوتیوب', link_ph_loc: 'نموونە: شوێن لەسەر نەخشەی Google', link_ph: 'ناونیشانی بەستەر',
@@ -140,7 +140,7 @@ window.I18N = {
     rename: 'Rename', cover: 'Cover image', delete_project: 'Delete project',
     upload: 'Upload files', add_link: 'Link', add_link_video: 'Video link', add_link_loc: 'Location link', add_text: 'Add text',
     send_section: 'Send section', none_admin: 'No files. Upload a file or drag it here.', none_sales: 'No files in this section.',
-    open: 'Open', send: 'Send', sel_send: 'Send selected ({n})', sel_all: 'Select all', sel_clear: 'Clear selection', sel_item: 'Select {name}', sel_too_long: 'Too many items for one message. Select fewer, or send them as files.', fav_add: 'Add to favorites', fav_remove: 'Remove from favorites', send_text: 'Send text', delete: 'Delete', cancel: 'Cancel', add: 'Add', create: 'Create', save: 'Save', close: 'Close',
+    open: 'Open', send: 'Send', sel_send: 'Send selected ({n})', sel_all: 'Select all', sel_clear: 'Clear selection', sel_item: 'Select {name}', sel_too_long: 'Too many items for one message. Select fewer, or send them as files.', fav_add: 'Add to favorites', fav_remove: 'Remove from favorites', flang_label: 'Language', flang_all: 'All', lang_tag_btn: 'Languages', lang_tag_title: 'Languages for this file', lang_tag_title_n: 'Languages for the selected files ({n})', lang_tag_hint: 'Choose one or more languages. If none is chosen, the file shows for every language.', lang_tag_saved: 'Languages saved', none_filtered: 'No files in this language.', v_prev: 'Previous', v_next: 'Next', send_text: 'Send text', delete: 'Delete', cancel: 'Cancel', add: 'Add', create: 'Create', save: 'Save', close: 'Close',
     open_in_drive: 'Open in Drive',
     link_title: 'Add link', link_label: 'Title to show', link_url: 'Link',
     link_ph_video: 'e.g. Project tour on YouTube', link_ph_loc: 'e.g. Location on Google Maps', link_ph: 'Link title',
@@ -190,6 +190,7 @@ window.I18N = {
 // رسائل الخادم (بالعربية) → ترجمتها. أي رسالة غير مذكورة تبقى كما وصلت.
 window.I18N_ERR = {
   ku: {
+    'لا توجد ملفات': 'هیچ فایلێک نییە',
     'يرجى تسجيل الدخول': 'تکایە بچۆ ژوورەوە', 'هذه العملية للمسؤول فقط': 'ئەم کارە تەنها بۆ بەڕێوەبەرە',
     'اسم المستخدم أو كلمة المرور غير صحيحة': 'ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە',
     'هذا الحساب موقوف. تواصل مع المسؤول.': 'ئەم هەژمارە ڕاگیراوە. پەیوەندی بە بەڕێوەبەرەوە بکە.',
@@ -208,6 +209,7 @@ window.I18N_ERR = {
     'حدث خطأ في الخادم': 'هەڵەیەک لە سێرڤەر ڕوویدا', 'إجراء غير معروف': 'کارێکی نەناسراو'
   },
   en: {
+    'لا توجد ملفات': 'No files',
     'يرجى تسجيل الدخول': 'Please sign in', 'هذه العملية للمسؤول فقط': 'This action is for admins only',
     'اسم المستخدم أو كلمة المرور غير صحيحة': 'Incorrect username or password',
     'هذا الحساب موقوف. تواصل مع المسؤول.': 'This account is suspended. Contact the admin.',
