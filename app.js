@@ -30,7 +30,10 @@ async function freshTokens() {
   } catch { /* نكمل بالمتاح */ }
 }
 function invalidateProject(id) { delete S.praw[id]; delete S.ptime[id]; cdel('p_' + id); }
-const S = { tokAt: {}, sel: new Set(), selKey: '', nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
+/* لغات عرض الملفات: كل ملف يمكن أن يُوسَم بلغة أو أكثر؛ الملف بلا وسم يظهر لكل اللغات. والمرشّح (S.fl) فارغ = عرض الكل */
+const CL = ['ar', 'ku', 'en'];
+function loadFl() { try { return JSON.parse(LS.get('fl') || '[]').filter((l) => CL.includes(l)); } catch { return []; } }
+const S = { fl: loadFl(), tokAt: {}, sel: new Set(), selKey: '', nav: 0, praw: {}, ptime: {}, listTime: 0, listStr: '', me: null, cfg: null, pub: null, projects: null, project: null, q: '', lang: 'ar', idx: 0, settingsLang: null };
 
 /* ===== اللغة ===== */
 const I = window.I18N;
@@ -243,6 +246,9 @@ async function sendWAAsync(build) {
 // قوالب الرسائل تُبنى بلغة الموظف المختارة حالياً (نص الافتتاح وأسماء الأقسام)
 const secLabel = (k) => (k.startsWith('info_') && k !== 'info_gen' ? `${L().info}${t('msg_info_sep')}${L()[k]}` : L()[k]);
 const intro = (p) => (TX().whatsappIntro || '').replace(/\{project\}/g, p.name);
+const vis = (it) => !S.fl.length || !(it.langs || []).length || it.langs.some((l) => S.fl.includes(l));
+function filterProject(p) { const sections = {}; for (const k of Object.keys(p.sections)) sections[k] = p.sections[k].filter(vis); return { ...p, sections }; }
+const flUrl = (u) => (S.fl.length ? u + '&f=' + S.fl.join(',') : u);
 const itemLine = (i) => (i.kind === 'text' ? `• ${i.name}\n${i.text}` : `• ${i.name}\n${i.shareUrl}`);
 const lines = (items) => items.map(itemLine).join('\n\n');
 const tooLong = (txt) => encodeURIComponent(txt).length > 3500;
@@ -252,14 +258,14 @@ function msgSection(p, keys, label, pageUrl) {
   if (!items.length) { toast(t('no_files_section'), 'err'); return null; }
   const body = keys.length > 1 ? keys.filter((k) => p.sections[k].length).map((k) => `*${secLabel(k)}*\n${lines(p.sections[k])}`).join('\n\n') : lines(items);
   let txt = `${intro(p)}\n\n*${label}*\n\n${body}`;
-  if (tooLong(txt)) txt = `${intro(p)}\n\n*${label}*\n${pageUrl}`;
+  if (tooLong(txt)) txt = `${intro(p)}\n\n*${label}*\n${flUrl(pageUrl)}`;
   return txt;
 }
 function msgProject(p) {
   const keys = Object.keys(p.sections).filter((k) => p.sections[k].length);
   if (!keys.length) { toast(t('no_files_project'), 'err'); return null; }
   let txt = `${intro(p)}\n\n` + keys.map((k) => `*${secLabel(k)}*\n${lines(p.sections[k])}`).join('\n\n');
-  if (tooLong(txt)) txt = `${intro(p)}\n${p.shareUrl}`;
+  if (tooLong(txt)) txt = `${intro(p)}\n${flUrl(p.shareUrl)}`;
   return txt;
 }
 
@@ -499,21 +505,23 @@ function updateSelBar() {
   if (!n) { if (bar) bar.remove(); return; }
   if (!bar) { bar = document.createElement('div'); bar.id = 'selbar'; document.body.appendChild(bar); }
   bar.innerHTML = `<button class="btn wa" data-act="send-selected">${IC.wa}<span>${esc(t('sel_send', { n }))}</span></button>
-    <button class="btn" data-act="sel-all">${esc(t('sel_all'))}</button><button class="btn" data-act="sel-clear">${esc(t('sel_clear'))}</button>`;
+    <button class="btn" data-act="sel-all">${esc(t('sel_all'))}</button>${S.me && S.me.role === 'admin' ? `<button class="btn" data-act="sel-langs">${IC.globe}<span>${esc(t('lang_tag_btn'))}</span></button>` : ''}<button class="btn" data-act="sel-clear">${esc(t('sel_clear'))}</button>`;
 }
 function fileRow(it) {
   const admin = S.me.role === 'admin';
   const del = admin ? `<button class="iconb" data-act="del-file" data-id="${esc(it.id)}" title="${esc(t('delete'))}" aria-label="${esc(t('delete'))} ${esc(it.name)}">${IC.trash}</button>` : '';
+  const lt = it.langsSet && it.langsSet.length ? `<span class="lt" title="${esc(t('flang_label'))}">${it.langsSet.map((l) => esc(I.langs[l].short)).join('·')}</span>` : '';
+  const lb = admin ? `<button class="iconb" data-act="item-langs" data-id="${esc(it.id)}" title="${esc(t('lang_tag_btn'))}" aria-label="${esc(t('lang_tag_btn'))} ${esc(it.name)}">${IC.globe}</button>` : '';
   if (it.kind === 'text') {
-    return `<li class="f note" data-id="${esc(it.id)}">${selBox(it)}<span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}</b><p>${esc(it.text)}</p></div>
-      <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${del}</div></li>`;
+    return `<li class="f note" data-id="${esc(it.id)}">${selBox(it)}<span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}${lt}</b><p>${esc(it.text)}</p></div>
+      <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${lb}${del}</div></li>`;
   }
   const size = fmtSize(it.size);
   return `<li class="f" data-id="${esc(it.id)}">${selBox(it)}
     <span class="fi ${it.category} hasth">${CAT_IC[it.category] || IC.other}<img class="th" loading="lazy" decoding="async" alt="" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(it.id)}&sz=w240"></span>
-    <button class="fn" data-act="open-file" data-id="${esc(it.id)}">${esc(it.name)}${size ? `<small><bdi dir="ltr">${size}</bdi></small>` : ''}</button>
+    <button class="fn" data-act="open-file" data-id="${esc(it.id)}">${esc(it.name)}${size ? `<small><bdi dir="ltr">${size}</bdi></small>` : ''}${lt}</button>
     <div class="fa"><button class="btn sm" data-act="open-file" data-id="${esc(it.id)}" title="${esc(t('open'))}">${IC.open}<span>${esc(t('open'))}</span></button>
-    <button class="btn sm wa" data-act="send-file" data-id="${esc(it.id)}" title="${esc(t('send'))}">${IC.wa}<span>${esc(t('send'))}</span></button>${del}</div></li>`;
+    <button class="btn sm wa" data-act="send-file" data-id="${esc(it.id)}" title="${esc(t('send'))}">${IC.wa}<span>${esc(t('send'))}</span></button>${lb}${del}</div></li>`;
 }
 function adminTools(k) {
   if (S.me.role !== 'admin') return '';
@@ -523,25 +531,32 @@ function adminTools(k) {
     <button class="btn sm" data-act="add-link" data-sec="${k}">${IC.plus}<span>${esc(lt)}</span></button>${note}`;
 }
 function block(k) {
-  const items = S.project.sections[k];
+  const all = S.project.sections[k]; const items = all.filter(vis);
   const name = k.startsWith('info_') ? L()[k] : L()[k];
   return `<div class="blk" data-sec="${k}"><div class="bh"><h3>${esc(name)}${count(items)}</h3>
     <div class="bact">${adminTools(k)}<button class="btn sm wa" data-act="send-section" data-sec="${k}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div></div>
-    ${items.length ? `<ul class="files">${items.map(fileRow).join('')}</ul>` : `<p class="none">${esc(S.me.role === 'admin' ? t('none_admin') : t('none_sales'))}</p>`}</div>`;
+    ${items.length ? `<ul class="files">${items.map(fileRow).join('')}</ul>` : `<p class="none">${esc(all.length ? t('none_filtered') : S.me.role === 'admin' ? t('none_admin') : t('none_sales'))}</p>`}</div>`;
 }
 const INFO_KEYS = ['info_gen', 'info_ar', 'info_ku', 'info_en'];
-const secCount = (p, k) => (k === 'info' ? INFO_KEYS : [k]).reduce((n, x) => n + p.sections[x].length, 0);
+const secCount = (p, k) => (k === 'info' ? INFO_KEYS : [k]).reduce((n, x) => n + p.sections[x].filter(vis).length, 0);
+function langBar() {
+  const any = Object.values(S.project.sections).flat().some((i) => (i.langs || []).length);
+  if (!any) return '';
+  const on = (l) => (l === 'all' ? !S.fl.length : S.fl.includes(l));
+  const chip = (l, label) => `<button class="chip${on(l) ? ' on' : ''}" type="button" data-act="flang" data-l="${l}" aria-pressed="${on(l)}">${esc(label)}</button>`;
+  return `<div class="flt" role="group" aria-label="${esc(t('flang_label'))}"><span class="fl-l">${IC.globe}<span>${esc(t('flang_label'))}</span></span>${chip('all', t('flang_all'))}${CL.map((l) => chip(l, I.langs[l].name)).join('')}</div>`;
+}
 function drawProject() {
   const p = S.project; const admin = S.me.role === 'admin'; const sec = S.sec; const pid = encodeURIComponent(p.id);
   const key = sec ? p.id + '/' + sec : ''; if (key !== S.selKey) { S.sel = new Set(); S.selKey = key; }
   if (sec) {
-    const have = new Set(Object.values(p.sections).flat().map((i) => i.id)); S.sel = new Set([...S.sel].filter((x) => have.has(x)));
+    const have = new Set(Object.values(p.sections).flat().filter(vis).map((i) => i.id)); S.sel = new Set([...S.sel].filter((x) => have.has(x)));
     const body = sec === 'info'
       ? `<section class="grp"><div class="sub">${INFO_KEYS.map(block).join('')}</div></section>` : block(sec);
     setView(`<a class="crumb" href="#/p/${pid}" data-act="back">${IC.back}<span>${esc(p.name)}</span></a>
     <div class="page-h"><h1>${esc(L()[sec])}<small>${secCount(p, sec)}</small></h1>
       <button class="btn wa" data-act="send-section" data-sec="${sec}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div>
-    <div class="stack">${body}</div>`);
+    ${langBar()}<div class="stack">${body}</div>`);
     if (admin) wireDrop();
     updateSelBar();
     return;
@@ -553,7 +568,7 @@ function drawProject() {
   ${admin ? `<div class="adminbar"><button class="btn sm" data-act="rename-project">${IC.edit}<span>${esc(t('rename'))}</span></button>
     <button class="btn sm" data-act="upload" data-sec="cover">${IC.image}<span>${esc(t('cover'))}</span></button>
     <button class="btn sm danger" data-act="del-project">${IC.trash}<span>${esc(t('delete_project'))}</span></button></div>` : ''}
-  <div class="sgrid">${SECS.map((k) => `<a class="stile" href="#/p/${pid}/${k}" data-sec="${k}"><span class="sn">${esc(L()[k])}</span><span class="cnt">${secCount(p, k)}</span></a>`).join('')}</div>`);
+  ${langBar()}<div class="sgrid">${SECS.map((k) => `<a class="stile" href="#/p/${pid}/${k}" data-sec="${k}"><span class="sn">${esc(L()[k])}</span><span class="cnt">${secCount(p, k)}</span></a>`).join('')}</div>`);
 }
 
 /* ===== رفع الملفات (للمسؤول) ===== */
@@ -595,6 +610,46 @@ function wireDrop() {
 
 /* ===== الإجراءات ===== */
 const findItem = (id) => Object.values(S.project.sections).flat().find((i) => i.id === id);
+/* عارض الملفات داخل التطبيق مع السابق/التالي ضمن ملفات القسم الحالي (بعد تطبيق مرشّح اللغة) */
+function viewList() {
+  const keys = S.sec === 'info' ? INFO_KEYS : (S.sec ? [S.sec] : Object.keys(S.project.sections));
+  return keys.flatMap((k) => S.project.sections[k]).filter((i) => vis(i) && i.kind === 'file' && ['image', 'video', 'pdf'].includes(i.category));
+}
+function showViewer(list, idx) {
+  let i = idx; let x0 = null; let m;
+  const rtl = () => document.documentElement.dir === 'rtl';
+  const render = () => {
+    const it = list[i]; const n = list.length;
+    const nav = n > 1 ? `${i > 0 ? `<button class="vnav prev" type="button" data-vnav="-1" aria-label="${esc(t('v_prev'))}">❮</button>` : ''}${i < n - 1 ? `<button class="vnav next" type="button" data-vnav="1" aria-label="${esc(t('v_next'))}">❯</button>` : ''}` : '';
+    const cap = `<div class="cap">${n > 1 ? `<span class="vcnt" dir="ltr">${i + 1} / ${n}</span>` : ''}${esc(it.name)} — <a href="${esc(it.openUrl)}" target="_blank" rel="noopener" style="color:#9cc6ea">${esc(t('open_in_drive'))}</a></div>`;
+    const media = it.category === 'image' ? `<img src="${esc(it.thumbUrl)}" alt="${esc(it.name)}">`
+      : `<iframe class="${it.category === 'video' ? 'v' : ''}" src="${esc(it.previewUrl)}" allow="autoplay; fullscreen" allowfullscreen title="${esc(it.name)}"></iframe>`;
+    $('.viewer', m.el).innerHTML = `<button class="x" aria-label="${esc(t('close'))}" data-close>✕</button>${nav}${media}${cap}`;
+  };
+  const go = (d) => { const j = i + d; if (j < 0 || j >= list.length) return; i = j; render(); };
+  const onKey = (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const toRight = e.key === 'ArrowRight'; go(toRight === rtl() ? -1 : 1);   // السابق دائماً عند بداية الاتجاه (يمين في RTL، يسار في LTR)
+  };
+  m = modal({ wide: true, body: '<div class="viewer"></div>', onClose() { document.removeEventListener('keydown', onKey); } });
+  document.addEventListener('keydown', onKey);
+  m.el.addEventListener('click', (e) => { const b = e.target.closest('[data-vnav]'); if (b) go(+b.dataset.vnav); });
+  m.el.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  m.el.addEventListener('touchend', (e) => {
+    if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) < 60) return; go((dx < 0) === rtl() ? -1 : 1);       // سحب نحو اليسار = التالي في LTR، والعكس في RTL
+  }, { passive: true });
+  render();
+}
+function langModal(ids, title, initial, clearSel) {
+  modal({ title, body: `<p class="note">${esc(t('lang_tag_hint'))}</p><div class="langchk">${CL.map((l) => `<label class="chk"><input type="checkbox" value="${l}"${initial.includes(l) ? ' checked' : ''}><span>${esc(I.langs[l].name)}</span></label>`).join('')}</div>`,
+    actions: [{ label: t('cancel') }, { label: t('save'), cls: 'pri', async run(ov) {
+      const langs = $$('input:checked', ov).map((c) => c.value);
+      await rpc('setLangs', { ids, langs });
+      toast(t('lang_tag_saved'), 'ok'); invalidateProject(S.project.id); if (clearSel) S.sel.clear();
+      await viewProject(S.project.id, S.sec, true);
+    } }] });
+}
 const actions = {
   fav(b) {
     const f = getFavs(); const id = b.dataset.id; if (f.has(id)) f.delete(id); else f.add(id);
@@ -622,18 +677,24 @@ const actions = {
   'open-file'(b) {
     const it = findItem(b.dataset.id); if (!it) return;
     if (it.kind === 'link') return window.open(it.openUrl, '_blank', 'noopener');
-    const cap = `<div class="cap">${esc(it.name)} — <a href="${esc(it.openUrl)}" target="_blank" rel="noopener" style="color:#9cc6ea">${esc(t('open_in_drive'))}</a></div>`;
-    const x = `<button class="x" aria-label="${esc(t('close'))}" data-close>✕</button>`;
-    if (it.category === 'image') return modal({ wide: true, body: `<div class="viewer">${x}<img src="${esc(it.thumbUrl)}" alt="${esc(it.name)}">${cap}</div>` });
-    if (it.category === 'video' || it.category === 'pdf') return modal({ wide: true, body: `<div class="viewer">${x}<iframe class="${it.category === 'video' ? 'v' : ''}" src="${esc(it.previewUrl)}" allow="autoplay; fullscreen" allowfullscreen title="${esc(it.name)}"></iframe>${cap}</div>` });
+    const list = viewList(); const idx = list.findIndex((x) => x.id === it.id);
+    if (idx >= 0) return showViewer(list, idx);
     window.open(it.openUrl, '_blank', 'noopener');
   },
+  flang(b) {
+    const l = b.dataset.l;
+    if (l === 'all') S.fl = []; else S.fl = S.fl.includes(l) ? S.fl.filter((x) => x !== l) : [...S.fl, l];
+    S.fl = CL.filter((x) => S.fl.includes(x)); LS.set('fl', S.fl.length ? JSON.stringify(S.fl) : null);
+    drawProject();
+  },
+  'item-langs'(b) { const it = findItem(b.dataset.id); if (it) langModal([it.id], t('lang_tag_title'), it.langsSet || []); },
+  'sel-langs'() { if (S.sel.size) langModal([...S.sel], t('lang_tag_title_n', { n: S.sel.size }), [], true); },
   async 'send-file'(b) { await freshTokens(); const it = findItem(b.dataset.id); if (it) return sendItems([it], S.project.name, () => sendWA(msgFile(S.project, it))); },
   sel(b) { if (b.checked) S.sel.add(b.dataset.id); else S.sel.delete(b.dataset.id); updateSelBar(); },
   'sel-all'() { $$('input[data-act=sel]').forEach((c) => { c.checked = true; S.sel.add(c.dataset.id); }); updateSelBar(); },
   'sel-clear'() { S.sel.clear(); $$('input[data-act=sel]').forEach((c) => { c.checked = false; }); updateSelBar(); },
   async 'send-selected'() {
-    await freshTokens(); const p = S.project; const items = [...S.sel].map(findItem).filter(Boolean);
+    await freshTokens(); const p = filterProject(S.project); const items = [...S.sel].map(findItem).filter(Boolean);
     if (!items.length) return;
     const label = L()[S.sec] || '';
     return sendItems(items, p.name, () => {
@@ -644,13 +705,13 @@ const actions = {
   },
   'send-note'(b) { const it = findItem(b.dataset.id); if (it) sendWA(it.text); },
   async 'send-section'(b) {
-    await freshTokens(); const k = b.dataset.sec; const p = S.project;
+    await freshTokens(); const k = b.dataset.sec; const p = filterProject(S.project);
     const keys = k === 'info' ? INFO_KEYS : [k];
     return sendItems(keys.flatMap((x) => p.sections[x]), p.name, () => { const txt = msgSection(p, keys, k === 'info' ? L().info : secLabel(k), p.sectionShareUrls[k]); if (txt) sendWA(txt); });
   },
-  async 'send-project'() { await freshTokens(); const p = S.project; return sendItems(Object.values(p.sections).flat(), p.name, () => { const txt = msgProject(p); if (txt) sendWA(txt); }); },
+  async 'send-project'() { await freshTokens(); const p = filterProject(S.project); return sendItems(Object.values(p.sections).flat(), p.name, () => { const txt = msgProject(p); if (txt) sendWA(txt); }); },
   async 'send-project-id'(b) {
-    const { project } = await api('GET', '/api/projects/' + encodeURIComponent(b.dataset.id));
+    const { project: pr } = await api('GET', '/api/projects/' + encodeURIComponent(b.dataset.id)); const project = filterProject(pr);
     return sendItems(Object.values(project.sections).flat(), project.name, () => { const txt = msgProject(project); if (txt) sendWA(txt); }, false);
   },
   upload(b) { pickFiles(b.dataset.sec); },
