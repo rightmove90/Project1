@@ -235,3 +235,18 @@ body:has(#selbar) main{padding-bottom:110px}
 .fav .i{width:22px;height:22px}
 .fav:hover,.fav:focus-visible{background:rgba(16,32,47,.8)}
 .fav[aria-pressed=true]{background:#fff;color:#e0a800;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+
+/* لغات الملفات: شريط المرشّح، وسم اللغة، وأزرار السابق/التالي في العارض */
+.flt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}
+.fl-l{display:inline-flex;align-items:center;gap:6px;font-weight:700;margin-inline-end:4px}
+.fl-l .i{width:18px;height:18px}
+.chip{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:99px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer;min-height:40px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.lt{display:inline-block;margin-inline-start:8px;padding:1px 8px;border-radius:99px;background:#e8eef5;color:#10202f;font-size:12px;font-weight:700;vertical-align:middle}
+.vnav{position:absolute;top:45%;transform:translateY(-50%);z-index:2;width:46px;height:64px;border:0;border-radius:12px;background:rgba(0,0,0,.55);color:#fff;font-size:26px;cursor:pointer}
+.vnav.prev{inset-inline-start:8px}.vnav.next{inset-inline-end:8px}
+[dir=rtl] .vnav{transform:translateY(-50%) scaleX(-1)}
+.vcnt{display:inline-block;margin-inline-end:10px;padding:1px 9px;border-radius:99px;background:#333;color:#fff;font-size:13px}
+.langchk{display:flex;flex-direction:column;gap:4px}
+.chk{display:flex;align-items:center;gap:10px;padding:10px 4px;font-size:16px;cursor:pointer}
+.chk input{width:22px;height:22px;accent-color:var(--ink)}
