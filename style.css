@@ -250,3 +250,9 @@ body:has(#selbar) main{padding-bottom:110px}
 .langchk{display:flex;flex-direction:column;gap:4px}
 .chk{display:flex;align-items:center;gap:10px;padding:10px 4px;font-size:16px;cursor:pointer}
 .chk input{width:22px;height:22px;accent-color:var(--ink)}
+
+/* تعديل الأسماء الجماعي */
+.rnin{flex:1;min-width:0;width:100%;padding:.55rem .7rem;border:1px solid var(--line,#ccd);border-radius:10px;font:inherit;background:var(--card,#fff);color:inherit}
+.rnin:focus{outline:2px solid var(--pri,#2a7);outline-offset:1px}
+li.f.ren{align-items:center}
+.rnbar{display:inline-flex;gap:.5rem}
