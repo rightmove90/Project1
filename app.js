@@ -513,6 +513,11 @@ function fileRow(it) {
   const rn = admin ? `<button class="iconb" data-act="rename-file" data-id="${esc(it.id)}" title="${esc(t('rename'))}" aria-label="${esc(t('rename'))} ${esc(it.name)}">${IC.edit}</button>` : '';
   const lt = it.langsSet && it.langsSet.length ? `<span class="lt" title="${esc(t('flang_label'))}">${it.langsSet.map((l) => esc(I.langs[l].short)).join('·')}</span>` : '';
   const lb = admin ? `<button class="iconb" data-act="item-langs" data-id="${esc(it.id)}" title="${esc(t('lang_tag_btn'))}" aria-label="${esc(t('lang_tag_btn'))} ${esc(it.name)}">${IC.globe}</button>` : '';
+  const rin = `<input class="rnin" data-id="${esc(it.id)}" data-orig="${esc(it.name)}" maxlength="120" value="${esc(it.name)}" aria-label="${esc(t('rnf_name'))}">`;
+  if (S.ren) {
+    if (it.kind === 'text') return `<li class="f note ren" data-id="${esc(it.id)}"><span class="fi text">${IC.text}</span><div class="nt">${rin}</div></li>`;
+    return `<li class="f ren" data-id="${esc(it.id)}"><span class="fi ${it.category} hasth">${CAT_IC[it.category] || IC.other}<img class="th" loading="lazy" decoding="async" alt="" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(it.id)}&sz=w240"></span>${rin}</li>`;
+  }
   if (it.kind === 'text') {
     return `<li class="f note" data-id="${esc(it.id)}">${selBox(it)}<span class="fi text">${IC.text}</span><div class="nt"><b>${esc(it.name)}${lt}</b><p>${esc(it.text)}</p></div>
       <div class="fa"><button class="btn sm wa" data-act="send-note" data-id="${esc(it.id)}">${IC.wa}<span>${esc(t('send_text'))}</span></button>${lb}${rn}${del}</div></li>`;
@@ -549,14 +554,15 @@ function langBar() {
 }
 function drawProject() {
   const p = S.project; const admin = S.me.role === 'admin'; const sec = S.sec; const pid = encodeURIComponent(p.id);
-  const key = sec ? p.id + '/' + sec : ''; if (key !== S.selKey) { S.sel = new Set(); S.selKey = key; }
+  const key = sec ? p.id + '/' + sec : ''; if (key !== S.selKey) { S.sel = new Set(); S.selKey = key; S.ren = false; }
   if (sec) {
     const have = new Set(Object.values(p.sections).flat().filter(vis).map((i) => i.id)); S.sel = new Set([...S.sel].filter((x) => have.has(x)));
     const body = sec === 'info'
       ? `<section class="grp"><div class="sub">${INFO_KEYS.map(block).join('')}</div></section>` : block(sec);
     setView(`<a class="crumb" href="#/p/${pid}" data-act="back">${IC.back}<span>${esc(p.name)}</span></a>
     <div class="page-h"><h1>${esc(L()[sec])}<small>${secCount(p, sec)}</small></h1>
-      <button class="btn wa" data-act="send-section" data-sec="${sec}">${IC.wa}<span>${esc(t('send_section'))}</span></button></div>
+      ${S.ren ? `<span class="rnbar"><button class="btn" data-act="ren-cancel">${esc(t('cancel'))}</button><button class="btn pri" data-act="ren-save">${esc(t('save'))}</button></span>`
+        : `${admin ? `<button class="btn" data-act="ren-start">${IC.edit}<span>${esc(t('rename_files'))}</span></button>` : ''}<button class="btn wa" data-act="send-section" data-sec="${sec}">${IC.wa}<span>${esc(t('send_section'))}</span></button>`}</div>
     ${langBar()}<div class="stack">${body}</div>`);
     if (admin) wireDrop();
     updateSelBar();
@@ -743,6 +749,14 @@ const actions = {
         invalidateProject(S.project.id); await viewProject(S.project.id, S.sec, true);
       } }] });
     setTimeout(() => { const i = $('#rfn'); if (i) { i.focus(); i.select(); } }, 50);
+  },
+  'ren-start'() { S.ren = true; drawProject(); const i = $('.rnin'); if (i) i.focus(); },
+  'ren-cancel'() { S.ren = false; drawProject(); },
+  async 'ren-save'() {
+    const items = $$('.rnin').filter((i) => i.value.trim() !== i.dataset.orig).map((i) => ({ id: i.dataset.id, name: i.value.trim() }));
+    if (items.some((x) => !x.name)) throw new Error(t('rnf_empty'));
+    if (items.length) { await rpc('renameFiles', { items }); toast(t('files_renamed', { n: items.length }), 'ok'); invalidateProject(S.project.id); }
+    S.ren = false; await viewProject(S.project.id, S.sec, true);
   },
   async 'del-file'(b) {
     const it = findItem(b.dataset.id); if (!it || !confirm(t('del_file_q', { name: it.name }))) return;
